@@ -114,6 +114,7 @@ jobs:
             --azure-file-volume-mount-path /data \
             --environment-variables \
               DB_PATH=/data/shop.db \
+              DB_TYPE=sqlite \
             --restart-policy Always
 
       - name: Deploy frontend (Caddy HTTPS) to ACI
