@@ -78,6 +78,8 @@ jobs:
 
           az storage share create --account-name $SA --account-key $SA_KEY --name pgdata --quota 10
           az storage share create --account-name $SA --account-key $SA_KEY --name caddydata --quota 1
+          az storage share create --account-name $SA --account-key $SA_KEY --name appdata --quota 10
+
 
       - name: Build & Push backend
         run: |
@@ -183,7 +185,15 @@ jobs:
               DB_NAME=$DB_DBNAME \
               DB_USER=$DB_USER \
               DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
-            --restart-policy Always
+            --restart-policy Always \
+            --azure-file-volume-account-name $SA \
+            --azure-file-volume-account-key $SA_KEY \
+            --azure-file-volume-share-name appdata \
+            --azure-file-volume-mount-path /data \
+            --environment-variables \
+              DB_PATH=/data/shop.db
+
+
 
       - name: Deploy frontend (Caddy HTTPS) to ACI
         run: |
