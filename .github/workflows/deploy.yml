@@ -96,8 +96,9 @@ jobs:
           # PostgreSQL 컨테이너 (Azure Files에 데이터 영속화)
           az container create \
             -g $RG -n $DB_NAME -l $LOC \
+            --os-type Linux \
             --image postgres:16 \
-            --dns-name-label "sgjo-db-${{ github.run_number }}" \
+            --dns-name-label "sgjo-db-8" \
             --ports 5432 \
             --environment-variables \
               POSTGRES_USER=$DB_USER \
