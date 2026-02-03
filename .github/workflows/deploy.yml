@@ -30,7 +30,6 @@ jobs:
       DB_USER: shopuser
       DB_DBNAME: shopdb
 
-      # Storage Account (고정/재사용). 전역 유니크여야 함!
       SA: sgjoshopstorekrc01
 
     steps:
@@ -80,35 +79,42 @@ jobs:
 
       - name: Ensure Storage Account + File Shares (idempotent)
         run: |
-          # Storage Account (없으면 생성, 있으면 재사용)
           az storage account show -g $RG -n $SA >/dev/null 2>&1 || \
           az storage account create -g $RG -n $SA -l $LOC --sku Standard_LRS --kind StorageV2
 
           SA_KEY=$(az storage account keys list -g $RG -n $SA --query "[0].value" -o tsv)
           echo "SA_KEY=$SA_KEY" >> $GITHUB_ENV
 
-          # File share 생성(데이터 플레인 방식이 CI에서 안정적)
           az storage share create --account-name $SA --account-key $SA_KEY --name pgdata --quota 10
           az storage share create --account-name $SA --account-key $SA_KEY --name caddydata --quota 1
 
-      - name: Mirror postgres image to ACR (avoid Docker Hub issues)
+      - name: Mirror bitnami postgresql to ACR (retry)
         run: |
-          # Postgres 이미지를 ACR로 미러링 (항상 시도해도 OK)
-          MIRROR_TAG=$ACR.azurecr.io/library/postgres:16
-          docker pull postgres:16
-          docker tag postgres:16 $MIRROR_TAG
-          docker push $MIRROR_TAG
-          echo "PG_IMAGE=$MIRROR_TAG" >> $GITHUB_ENV
+          BITNAMI_TAG=$ACR.azurecr.io/bitnami/postgresql:16
+
+          for i in 1 2 3 4 5; do
+            echo "Pull attempt $i for bitnami/postgresql:16..."
+            if docker pull bitnami/postgresql:16; then
+              break
+            fi
+            sleep $((i*10))
+          done
+
+          docker tag bitnami/postgresql:16 $BITNAMI_TAG
+          docker push $BITNAMI_TAG
+          echo "DB_IMAGE=$BITNAMI_TAG" >> $GITHUB_ENV
 
       - name: Deploy DB (PostgreSQL) to ACI
         run: |
-          # 매 배포 안정화를 위해 delete -> create
           az container delete -g $RG -n $DB_NAME --yes >/dev/null 2>&1 || true
 
           az container create \
             -g $RG -n $DB_NAME -l $LOC \
             --os-type Linux \
-            --image bitnami/postgresql:16 \
+            --image $DB_IMAGE \
+            --registry-login-server $ACR.azurecr.io \
+            --registry-username $ACR_USER \
+            --registry-password $ACR_PASS \
             --dns-name-label $DB_DNS \
             --ports 5432 \
             --cpu 1 \
@@ -123,12 +129,10 @@ jobs:
             --azure-file-volume-mount-path /bitnami/postgresql \
             --restart-policy Always
 
-
       - name: Deploy backend to ACI
         run: |
           az container delete -g $RG -n $BACK_NAME --yes >/dev/null 2>&1 || true
 
-          # DB FQDN (고정 dns-name-label 사용)
           DB_HOST="$DB_DNS.$LOC.azurecontainer.io"
 
           az container create \
