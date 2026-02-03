@@ -138,6 +138,7 @@ jobs:
             --environment-variables \
               NEXT_PUBLIC_API_BASE=$API_BASE \
               FRONT_DOMAIN=$FRONT_DOMAIN \
+              ACME_EMAIL=${{ secrets.ACME_EMAIL }} \
               PORT=3000 \
               HOSTNAME=0.0.0.0 \
             --azure-file-volume-account-name $SA \

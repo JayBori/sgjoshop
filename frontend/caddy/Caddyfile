@@ -1,8 +1,18 @@
+{
+  email {$ACME_EMAIL}
+}
+
 :80 {
+  @host header Host {$FRONT_DOMAIN}
+  redir @host https://{$FRONT_DOMAIN}{uri}
   reverse_proxy 127.0.0.1:3000
 }
 
-:443 {
-  tls internal
+{$FRONT_DOMAIN} {
+  encode zstd gzip
   reverse_proxy 127.0.0.1:3000
+}
+
+www.{$FRONT_DOMAIN} {
+  redir https://{$FRONT_DOMAIN}{uri}
 }
