@@ -1,6 +1,11 @@
-import os, sqlite3
+import os
+import sqlite3
+from fastapi import FastAPI
+
+app = FastAPI()
 
 DB_PATH = os.getenv("DB_PATH", "/data/shop.db")
+
 
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -21,11 +26,42 @@ def init_db():
     cur.execute("SELECT COUNT(*) FROM products;")
     if cur.fetchone()[0] == 0:
         cur.executemany(
-          "INSERT INTO products(sku,name,description,price) VALUES (?,?,?,?)",
-          [
-            ("SKU-001","Apple","Fresh apple",1.2),
-            ("SKU-002","Banana","Sweet banana",0.8),
-          ]
+            "INSERT INTO products(sku,name,description,price) VALUES (?,?,?,?)",
+            [
+                ("SKU-001", "Apple", "Fresh apple", 1.2),
+                ("SKU-002", "Banana", "Sweet banana", 0.8),
+            ]
         )
+
     conn.commit()
     conn.close()
+
+
+@app.on_event("startup")
+def startup_event():
+    init_db()
+
+
+@app.get("/health")
+def health():
+    return {"ok": True, "db_path": DB_PATH}
+
+
+@app.get("/products")
+def products():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT id, sku, name, description, price FROM products ORDER BY id;")
+    rows = cur.fetchall()
+    conn.close()
+
+    return [
+        {
+            "id": r[0],
+            "sku": r[1],
+            "name": r[2],
+            "description": r[3],
+            "price": r[4],
+        }
+        for r in rows
+    ]
