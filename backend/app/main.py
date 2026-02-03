@@ -14,6 +14,7 @@ app.add_middleware(
 )
 
 DB_PATH = os.getenv("DB_PATH", "/data/shop.db")
+IMAGE_BASE = os.getenv("IMAGE_BASE", "")  # e.g., https://<sa>.blob.core.windows.net/product-images
 
 
 def init_db():
@@ -72,13 +73,15 @@ def init_db():
     # seed (한번만)
     cur.execute("SELECT COUNT(*) FROM products;")
     if cur.fetchone()[0] == 0:
+        def img(path, fallback):
+            return f"{IMAGE_BASE.rstrip('/')}/{path}" if IMAGE_BASE else fallback
         seed_rows = [
-            ("SKU-001", "Classic Tee", "Soft cotton T-shirt in various colors.", 19.99, "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=600", 200),
-            ("SKU-002", "Denim Jacket", "Timeless denim jacket with a modern fit.", 59.0, "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600", 80),
-            ("SKU-003", "Running Shoes", "Lightweight sneakers for everyday comfort.", 89.0, "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600", 120),
-            ("SKU-004", "Wireless Earbuds", "True wireless earbuds with noise isolation.", 49.0, "https://images.unsplash.com/photo-1585386959984-a41552231658?w=600", 150),
-            ("SKU-005", "Backpack", "Durable backpack with 15\" laptop sleeve.", 39.0, "https://images.unsplash.com/photo-1514477917009-389c76a86b68?w=600", 60),
-            ("SKU-006", "Water Bottle", "Insulated stainless steel, 600ml.", 15.0, "https://images.unsplash.com/photo-1526404954014-2fa806b5aa47?w=600", 300),
+            ("SKU-001", "Classic Tee", "Soft cotton T-shirt in various colors.", 19.99, img("classic-tee.jpg", "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=600"), 200),
+            ("SKU-002", "Denim Jacket", "Timeless denim jacket with a modern fit.", 59.0, img("denim-jacket.jpg", "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600"), 80),
+            ("SKU-003", "Running Shoes", "Lightweight sneakers for everyday comfort.", 89.0, img("running-shoes.jpg", "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600"), 120),
+            ("SKU-004", "Wireless Earbuds", "True wireless earbuds with noise isolation.", 49.0, img("wireless-earbuds.jpg", "https://images.unsplash.com/photo-1585386959984-a41552231658?w=600"), 150),
+            ("SKU-005", "Backpack", "Durable backpack with 15\" laptop sleeve.", 39.0, img("backpack.jpg", "https://images.unsplash.com/photo-1514477917009-389c76a86b68?w=600"), 60),
+            ("SKU-006", "Water Bottle", "Insulated stainless steel, 600ml.", 15.0, img("water-bottle.jpg", "https://images.unsplash.com/photo-1526404954014-2fa806b5aa47?w=600"), 300),
         ]
         cur.executemany(
             "INSERT INTO products(sku,name,description,price,image_url,stock) VALUES (?,?,?,?,?,?)",
@@ -126,13 +129,15 @@ def reseed():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("DELETE FROM products;")
+    def img(path, fallback):
+        return f"{IMAGE_BASE.rstrip('/')}/{path}" if IMAGE_BASE else fallback
     seed_rows = [
-        ("SKU-001", "Classic Tee", "Soft cotton T-shirt in various colors.", 19.99, "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=600", 200),
-        ("SKU-002", "Denim Jacket", "Timeless denim jacket with a modern fit.", 59.0, "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600", 80),
-        ("SKU-003", "Running Shoes", "Lightweight sneakers for everyday comfort.", 89.0, "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600", 120),
-        ("SKU-004", "Wireless Earbuds", "True wireless earbuds with noise isolation.", 49.0, "https://images.unsplash.com/photo-1585386959984-a41552231658?w=600", 150),
-        ("SKU-005", "Backpack", "Durable backpack with 15\" laptop sleeve.", 39.0, "https://images.unsplash.com/photo-1514477917009-389c76a86b68?w=600", 60),
-        ("SKU-006", "Water Bottle", "Insulated stainless steel, 600ml.", 15.0, "https://images.unsplash.com/photo-1526404954014-2fa806b5aa47?w=600", 300),
+        ("SKU-001", "Classic Tee", "Soft cotton T-shirt in various colors.", 19.99, img("classic-tee.jpg", "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=600"), 200),
+        ("SKU-002", "Denim Jacket", "Timeless denim jacket with a modern fit.", 59.0, img("denim-jacket.jpg", "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600"), 80),
+        ("SKU-003", "Running Shoes", "Lightweight sneakers for everyday comfort.", 89.0, img("running-shoes.jpg", "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600"), 120),
+        ("SKU-004", "Wireless Earbuds", "True wireless earbuds with noise isolation.", 49.0, img("wireless-earbuds.jpg", "https://images.unsplash.com/photo-1585386959984-a41552231658?w=600"), 150),
+        ("SKU-005", "Backpack", "Durable backpack with 15\" laptop sleeve.", 39.0, img("backpack.jpg", "https://images.unsplash.com/photo-1514477917009-389c76a86b68?w=600"), 60),
+        ("SKU-006", "Water Bottle", "Insulated stainless steel, 600ml.", 15.0, img("water-bottle.jpg", "https://images.unsplash.com/photo-1526404954014-2fa806b5aa47?w=600"), 300),
     ]
     cur.executemany(
         "INSERT INTO products(sku,name,description,price,image_url,stock) VALUES (?,?,?,?,?,?)",

@@ -19,12 +19,14 @@ function Hero() {
 }
 
 import ProductGrid from "../components/ProductGrid";
+import BestSection from "../components/BestSection";
 
 export default async function Home() {
   const products = await getProducts();
   return (
     <main>
       <Hero />
+      <BestSection products={products} />
       <ProductGrid products={products} />
     </main>
   );
