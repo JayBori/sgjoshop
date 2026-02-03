@@ -145,7 +145,7 @@ jobs:
             --azure-file-volume-account-key $SA_KEY \
             --azure-file-volume-share-name caddydata \
             --azure-file-volume-mount-path /data \
-            --restart-policy Always
+            --restart-policy Never
 
       - name: Print URLs
         run: |
