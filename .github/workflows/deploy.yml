@@ -19,17 +19,13 @@ jobs:
 
       FRONT_NAME: sgjo-aci-front
       BACK_NAME: sgjo-aci-back
-      DB_NAME: sgjo-aci-db
 
       FRONT_DNS: sgjo-front
       BACK_DNS: sgjo-back
-      DB_DNS: sgjo-db
 
       FRONT_DOMAIN: sgjo.shop
 
-      DB_USER: shopuser
-      DB_DBNAME: shopdb
-
+      # Storage Account (고정/재사용). 전역 유니크여야 함!
       SA: sgjoshopstorekrc01
 
     steps:
@@ -76,10 +72,9 @@ jobs:
           SA_KEY=$(az storage account keys list -g $RG -n $SA --query "[0].value" -o tsv)
           echo "SA_KEY=$SA_KEY" >> $GITHUB_ENV
 
-          az storage share create --account-name $SA --account-key $SA_KEY --name pgdata --quota 10
+          # Front(Caddy) 인증서 저장용 + Backend(SQLite db 파일) 저장용
           az storage share create --account-name $SA --account-key $SA_KEY --name caddydata --quota 1
           az storage share create --account-name $SA --account-key $SA_KEY --name appdata --quota 10
-
 
       - name: Build & Push backend
         run: |
@@ -97,76 +92,10 @@ jobs:
           docker push $FRONT_TAG
           echo "FRONT_TAG=$FRONT_TAG" >> $GITHUB_ENV
 
-      - name: Mirror postgres:16 to ACR (retry + fail fast)
-        run: |
-          set -e
-          PG_IMAGE=$ACR.azurecr.io/library/postgres:16
-
-          for i in 1 2 3 4 5; do
-            echo "Pull attempt $i for postgres:16..."
-            if docker pull postgres:16; then
-              break
-            fi
-            sleep $((i*10))
-            if [ "$i" -eq 5 ]; then
-              echo "Failed to pull postgres:16 from Docker Hub after retries"
-              exit 1
-            fi
-          done
-
-          docker tag postgres:16 $PG_IMAGE
-          docker push $PG_IMAGE
-          echo "PG_IMAGE=$PG_IMAGE" >> $GITHUB_ENV
-
-      - name: Deploy DB (PostgreSQL) to ACI
-        run: |
-          set -e
-          az container delete -g $RG -n $DB_NAME --yes >/dev/null 2>&1 || true
-
-          az container create \
-            -g $RG -n $DB_NAME -l $LOC \
-            --os-type Linux \
-            --image $PG_IMAGE \
-            --registry-login-server $ACR.azurecr.io \
-            --registry-username $ACR_USER \
-            --registry-password $ACR_PASS \
-            --dns-name-label $DB_DNS \
-            --ports 5432 \
-            --cpu 1 \
-            --memory 2 \
-            --environment-variables \
-              POSTGRES_USER=$DB_USER \
-              POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }} \
-              POSTGRES_DB=$DB_DBNAME \
-              PGDATA=/var/lib/postgresql/data/pgdata \
-            --azure-file-volume-account-name $SA \
-            --azure-file-volume-account-key $SA_KEY \
-            --azure-file-volume-share-name pgdata \
-            --azure-file-volume-mount-path /var/lib/postgresql/data \
-            --restart-policy Never
-
-      - name: Wait for DB and init data
-        run: |
-          set -e
-          echo "Waiting for DB to be Running..."
-          for i in 1 2 3 4 5 6; do
-            STATE=$(az container show -g $RG -n $DB_NAME --query instanceView.state -o tsv || echo "")
-            echo "DB state: $STATE"
-            if [ "$STATE" = "Running" ]; then
-              break
-            fi
-            sleep 10
-          done
-
-          echo "DB logs (last 200 lines):"
-          az container logs -g $RG -n $DB_NAME --tail 200 || true
-
-      - name: Deploy backend to ACI
+      - name: Deploy backend to ACI (SQLite on Azure Files)
         run: |
           set -e
           az container delete -g $RG -n $BACK_NAME --yes >/dev/null 2>&1 || true
-
-          DB_HOST="$DB_DNS.$LOC.azurecontainer.io"
 
           az container create \
             -g $RG -n $BACK_NAME -l $LOC \
@@ -179,21 +108,13 @@ jobs:
             --ports 8000 \
             --cpu 1 \
             --memory 1.5 \
-            --environment-variables \
-              DB_HOST=$DB_HOST \
-              DB_PORT=5432 \
-              DB_NAME=$DB_DBNAME \
-              DB_USER=$DB_USER \
-              DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
-            --restart-policy Always \
             --azure-file-volume-account-name $SA \
             --azure-file-volume-account-key $SA_KEY \
             --azure-file-volume-share-name appdata \
             --azure-file-volume-mount-path /data \
             --environment-variables \
-              DB_PATH=/data/shop.db
-
-
+              DB_PATH=/data/shop.db \
+            --restart-policy Always
 
       - name: Deploy frontend (Caddy HTTPS) to ACI
         run: |
@@ -224,7 +145,9 @@ jobs:
 
       - name: Print URLs
         run: |
-          echo "DB:      $DB_DNS.$LOC.azurecontainer.io:5432"
           echo "BACKEND: http://$BACK_DNS.$LOC.azurecontainer.io:8000"
           echo "FRONT:   http://$FRONT_DNS.$LOC.azurecontainer.io (DNS 전)"
           echo "FRONT:   https://$FRONT_DOMAIN (DNS 연결 후)"
+          echo ""
+          echo "Next step:"
+          echo "  POST http://$BACK_DNS.$LOC.azurecontainer.io:8000/init  (seed data)"
