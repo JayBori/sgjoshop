@@ -108,22 +108,19 @@ jobs:
           az container create \
             -g $RG -n $DB_NAME -l $LOC \
             --os-type Linux \
-            --image $PG_IMAGE \
-            --registry-login-server $ACR.azurecr.io \
-            --registry-username $ACR_USER \
-            --registry-password $ACR_PASS \
+            --image bitnami/postgresql:16 \
             --dns-name-label $DB_DNS \
             --ports 5432 \
             --cpu 1 \
             --memory 2 \
             --environment-variables \
-              POSTGRES_USER=$DB_USER \
-              POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }} \
-              POSTGRES_DB=$DB_DBNAME \
+              POSTGRESQL_USERNAME=$DB_USER \
+              POSTGRESQL_PASSWORD=${{ secrets.DB_PASSWORD }} \
+              POSTGRESQL_DATABASE=$DB_DBNAME \
             --azure-file-volume-account-name $SA \
             --azure-file-volume-account-key $SA_KEY \
             --azure-file-volume-share-name pgdata \
-            --azure-file-volume-mount-path /var/lib/postgresql/data \
+            --azure-file-volume-mount-path /bitnami/postgresql \
             --restart-policy Always
 
 
