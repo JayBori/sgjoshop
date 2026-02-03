@@ -15,6 +15,7 @@ WORKDIR /srv
 
 # caddy 설치
 RUN apk add --no-cache caddy
+ENV XDG_DATA_HOME=/data
 
 # Next standalone 복사
 COPY --from=builder /app/.next/standalone /srv/
