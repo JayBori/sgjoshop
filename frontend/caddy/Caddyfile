@@ -1,11 +1,5 @@
-{
-  email {$ACME_EMAIL}
-}
-
 :80 {
-  @host header Host {$FRONT_DOMAIN}
-  redir @host https://{$FRONT_DOMAIN}{uri}
-  reverse_proxy 127.0.0.1:3000
+  redir https://{$FRONT_DOMAIN}{uri}
 }
 
 {$FRONT_DOMAIN} {
