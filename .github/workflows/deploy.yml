@@ -87,8 +87,9 @@ jobs:
           SA_KEY=$(az storage account keys list -g $RG -n $SA --query "[0].value" -o tsv)
           echo "SA_KEY=$SA_KEY" >> $GITHUB_ENV
 
-          az storage share-rm create --storage-account $SA --name pgdata --quota 10
-          az storage share-rm create --storage-account $SA --name caddydata --quota 1
+          az storage share-rm create --resource-group $RG --storage-account $SA --name pgdata --quota 10
+          az storage share-rm create --resource-group $RG --storage-account $SA --name caddydata --quota 1
+
 
       - name: Deploy DB (PostgreSQL) to ACI
         run: |
