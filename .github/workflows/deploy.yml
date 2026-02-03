@@ -137,10 +137,13 @@ jobs:
             --environment-variables \
               NEXT_PUBLIC_API_BASE=$API_BASE \
               FRONT_DOMAIN=$FRONT_DOMAIN \
+              PORT=3000 \
+              HOSTNAME=0.0.0.0 \
             --azure-file-volume-account-name $SA \
             --azure-file-volume-account-key $SA_KEY \
             --azure-file-volume-share-name caddydata \
             --azure-file-volume-mount-path /data \
+            
             --restart-policy Always
 
       - name: Print URLs
