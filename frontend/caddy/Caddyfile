@@ -1,5 +1,5 @@
 :80 {
-  redir https://{$FRONT_DOMAIN}{uri}
+  redir https://{host}{uri}
 }
 
 {$FRONT_DOMAIN} {
@@ -7,6 +7,6 @@
   reverse_proxy 127.0.0.1:3000
 }
 
-www.{$FRONT_DOMAIN} {
+sgjo.shop {
   redir https://{$FRONT_DOMAIN}{uri}
 }

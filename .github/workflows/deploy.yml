@@ -23,7 +23,8 @@ jobs:
       FRONT_DNS: sgjo-front
       BACK_DNS: sgjo-back
 
-      FRONT_DOMAIN: sgjo.shop
+      FRONT_DOMAIN: www.sgjo.shop
+      DNS_ZONE: sgjo.shop
 
       # Storage Account (고정/재사용). 전역 유니크여야 함!
       SA: sgjoshopstorekrc01
@@ -147,6 +148,23 @@ jobs:
             --azure-file-volume-share-name caddydata \
             --azure-file-volume-mount-path /data \
             --restart-policy Never
+
+      - name: Ensure Azure DNS zone and update A/@ and CNAME/www
+        run: |
+          set -e
+          az network dns zone show -g $RG -n $DNS_ZONE >/dev/null 2>&1 || az network dns zone create -g $RG -n $DNS_ZONE >/dev/null
+
+          FRONT_IP=$(az container show -g $RG -n $FRONT_NAME --query ipAddress.ip -o tsv)
+          FRONT_FQDN="$FRONT_DNS.$LOC.azurecontainer.io"
+
+          # Apex A record -> container IP (idempotent)
+          az network dns record-set a show -g $RG -z $DNS_ZONE -n @ >/dev/null 2>&1 || az network dns record-set a create -g $RG -z $DNS_ZONE -n @ --ttl 60
+          az network dns record-set a update -g $RG -z $DNS_ZONE -n @ --set aRecords=[]
+          az network dns record-set a add-record -g $RG -z $DNS_ZONE -n @ -a $FRONT_IP
+
+          # www CNAME -> container FQDN (idempotent)
+          az network dns record-set cname show -g $RG -z $DNS_ZONE -n www >/dev/null 2>&1 || az network dns record-set cname create -g $RG -z $DNS_ZONE -n www --ttl 60
+          az network dns record-set cname set-record -g $RG -z $DNS_ZONE -n www -c $FRONT_FQDN
 
       - name: Print URLs
         run: |
