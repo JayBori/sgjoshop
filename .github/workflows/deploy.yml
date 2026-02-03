@@ -23,11 +23,15 @@ jobs:
 
       FRONT_DNS: sgjo-front
       BACK_DNS: sgjo-back
+      DB_DNS: sgjo-db
 
       FRONT_DOMAIN: sgjo.shop
 
       DB_USER: shopuser
       DB_DBNAME: shopdb
+
+      # Storage Account (고정/재사용). 전역 유니크여야 함!
+      SA: sgjoshopstorekrc01
 
     steps:
       - name: Checkout
@@ -46,7 +50,7 @@ jobs:
 
       - name: Ensure ACR exists
         run: |
-          az acr show -n $ACR -g $RG || az acr create -n $ACR -g $RG --sku Basic
+          az acr show -n $ACR -g $RG >/dev/null 2>&1 || az acr create -n $ACR -g $RG --sku Basic
           az acr update -n $ACR --admin-enabled true
 
       - name: ACR Login
@@ -74,32 +78,32 @@ jobs:
           echo "ACR_USER=$ACR_USER" >> $GITHUB_ENV
           echo "ACR_PASS=$ACR_PASS" >> $GITHUB_ENV
 
-      - name: Create Storage Account + File Shares
+      - name: Ensure Storage Account + File Shares (idempotent)
         run: |
-          SA="sgjoshopstore${{ github.run_number }}"
-          echo "SA=$SA" >> $GITHUB_ENV
-
-          az storage account create \
-            -g $RG -n $SA -l $LOC \
-            --sku Standard_LRS \
-            --kind StorageV2
+          # Storage Account (없으면 생성, 있으면 재사용)
+          az storage account show -g $RG -n $SA >/dev/null 2>&1 || \
+          az storage account create -g $RG -n $SA -l $LOC --sku Standard_LRS --kind StorageV2
 
           SA_KEY=$(az storage account keys list -g $RG -n $SA --query "[0].value" -o tsv)
           echo "SA_KEY=$SA_KEY" >> $GITHUB_ENV
 
-          az storage share-rm create --resource-group $RG --storage-account $SA --name pgdata --quota 10
-          az storage share-rm create --resource-group $RG --storage-account $SA --name caddydata --quota 1
-
+          # File share 생성(데이터 플레인 방식이 CI에서 안정적)
+          az storage share create --account-name $SA --account-key $SA_KEY --name pgdata --quota 10
+          az storage share create --account-name $SA --account-key $SA_KEY --name caddydata --quota 1
 
       - name: Deploy DB (PostgreSQL) to ACI
         run: |
-          # PostgreSQL 컨테이너 (Azure Files에 데이터 영속화)
+          # 매 배포 안정화를 위해 delete -> create
+          az container delete -g $RG -n $DB_NAME --yes >/dev/null 2>&1 || true
+
           az container create \
             -g $RG -n $DB_NAME -l $LOC \
             --os-type Linux \
             --image postgres:16 \
-            --dns-name-label "sgjo-db-8" \
+            --dns-name-label $DB_DNS \
             --ports 5432 \
+            --cpu 1 \
+            --memory 2 \
             --environment-variables \
               POSTGRES_USER=$DB_USER \
               POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }} \
@@ -112,17 +116,22 @@ jobs:
 
       - name: Deploy backend to ACI
         run: |
-          # DB는 같은 VNET이 없으면 public로 접근하게 됨(실습용 OK)
-          DB_HOST=$(az container show -g $RG -n $DB_NAME --query ipAddress.fqdn -o tsv)
+          az container delete -g $RG -n $BACK_NAME --yes >/dev/null 2>&1 || true
+
+          # DB FQDN (고정 dns-name-label 사용)
+          DB_HOST="$DB_DNS.$LOC.azurecontainer.io"
 
           az container create \
             -g $RG -n $BACK_NAME -l $LOC \
+            --os-type Linux \
             --image $BACK_TAG \
             --registry-login-server $ACR.azurecr.io \
             --registry-username $ACR_USER \
             --registry-password $ACR_PASS \
             --dns-name-label $BACK_DNS \
             --ports 8000 \
+            --cpu 1 \
+            --memory 1.5 \
             --environment-variables \
               DB_HOST=$DB_HOST \
               DB_PORT=5432 \
@@ -133,16 +142,21 @@ jobs:
 
       - name: Deploy frontend (Caddy HTTPS) to ACI
         run: |
+          az container delete -g $RG -n $FRONT_NAME --yes >/dev/null 2>&1 || true
+
           API_BASE="http://$BACK_DNS.$LOC.azurecontainer.io:8000"
 
           az container create \
             -g $RG -n $FRONT_NAME -l $LOC \
+            --os-type Linux \
             --image $FRONT_TAG \
             --registry-login-server $ACR.azurecr.io \
             --registry-username $ACR_USER \
             --registry-password $ACR_PASS \
             --dns-name-label $FRONT_DNS \
             --ports 80 443 \
+            --cpu 1 \
+            --memory 1.5 \
             --environment-variables \
               NEXT_PUBLIC_API_BASE=$API_BASE \
               FRONT_DOMAIN=$FRONT_DOMAIN \
@@ -154,6 +168,7 @@ jobs:
 
       - name: Print URLs
         run: |
-          echo "BACKEND URL: http://$BACK_DNS.$LOC.azurecontainer.io:8000"
-          echo "FRONTEND URL: https://$FRONT_DOMAIN (DNS 연결 후)"
-          echo "FRONT ACI FQDN: $FRONT_DNS.$LOC.azurecontainer.io"
+          echo "DB:      $DB_DNS.$LOC.azurecontainer.io:5432"
+          echo "BACKEND: http://$BACK_DNS.$LOC.azurecontainer.io:8000"
+          echo "FRONT:   http://$FRONT_DNS.$LOC.azurecontainer.io (DNS 전)"
+          echo "FRONT:   https://$FRONT_DOMAIN (DNS 연결 후)"
