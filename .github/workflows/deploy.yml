@@ -115,7 +115,7 @@ jobs:
             --environment-variables \
               DB_PATH=/data/shop.db \
               DB_TYPE=sqlite \
-            --restart-policy Always
+            --restart-policy Never
 
       - name: Deploy frontend (Caddy HTTPS) to ACI
         run: |
