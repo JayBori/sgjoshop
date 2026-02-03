@@ -91,6 +91,15 @@ jobs:
           az storage share create --account-name $SA --account-key $SA_KEY --name pgdata --quota 10
           az storage share create --account-name $SA --account-key $SA_KEY --name caddydata --quota 1
 
+      - name: Mirror postgres image to ACR (avoid Docker Hub issues)
+        run: |
+          # Postgres 이미지를 ACR로 미러링 (항상 시도해도 OK)
+          MIRROR_TAG=$ACR.azurecr.io/library/postgres:16
+          docker pull postgres:16
+          docker tag postgres:16 $MIRROR_TAG
+          docker push $MIRROR_TAG
+          echo "PG_IMAGE=$MIRROR_TAG" >> $GITHUB_ENV
+
       - name: Deploy DB (PostgreSQL) to ACI
         run: |
           # 매 배포 안정화를 위해 delete -> create
@@ -99,7 +108,10 @@ jobs:
           az container create \
             -g $RG -n $DB_NAME -l $LOC \
             --os-type Linux \
-            --image postgres:16 \
+            --image $PG_IMAGE \
+            --registry-login-server $ACR.azurecr.io \
+            --registry-username $ACR_USER \
+            --registry-password $ACR_PASS \
             --dns-name-label $DB_DNS \
             --ports 5432 \
             --cpu 1 \
@@ -113,6 +125,7 @@ jobs:
             --azure-file-volume-share-name pgdata \
             --azure-file-volume-mount-path /var/lib/postgresql/data \
             --restart-policy Always
+
 
       - name: Deploy backend to ACI
         run: |
