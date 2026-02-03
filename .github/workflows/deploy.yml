@@ -1,0 +1,157 @@
+name: build-push-deploy-aci
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      RG: sgjo-test-shop-rg
+      LOC: koreacentral
+      ACR: sgjoshop
+
+      FRONT_NAME: sgjo-aci-front
+      BACK_NAME: sgjo-aci-back
+      DB_NAME: sgjo-aci-db
+
+      FRONT_DNS: sgjo-front
+      BACK_DNS: sgjo-back
+
+      FRONT_DOMAIN: sgjo.shop
+
+      DB_USER: shopuser
+      DB_DBNAME: shopdb
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create RG (if not exists)
+        run: |
+          az group create -n $RG -l $LOC
+
+      - name: Ensure ACR exists
+        run: |
+          az acr show -n $ACR -g $RG || az acr create -n $ACR -g $RG --sku Basic
+          az acr update -n $ACR --admin-enabled true
+
+      - name: ACR Login
+        run: |
+          az acr login -n $ACR
+
+      - name: Build & Push backend
+        run: |
+          BACK_TAG=$ACR.azurecr.io/shop-backend:${{ github.sha }}
+          docker build -t $BACK_TAG ./backend
+          docker push $BACK_TAG
+          echo "BACK_TAG=$BACK_TAG" >> $GITHUB_ENV
+
+      - name: Build & Push frontend
+        run: |
+          FRONT_TAG=$ACR.azurecr.io/shop-frontend:${{ github.sha }}
+          docker build -t $FRONT_TAG ./frontend
+          docker push $FRONT_TAG
+          echo "FRONT_TAG=$FRONT_TAG" >> $GITHUB_ENV
+
+      - name: Get ACR credentials
+        run: |
+          ACR_USER=$(az acr credential show -n $ACR --query username -o tsv)
+          ACR_PASS=$(az acr credential show -n $ACR --query "passwords[0].value" -o tsv)
+          echo "ACR_USER=$ACR_USER" >> $GITHUB_ENV
+          echo "ACR_PASS=$ACR_PASS" >> $GITHUB_ENV
+
+      - name: Create Storage Account + File Shares
+        run: |
+          SA="sgjoshopstore${{ github.run_number }}"
+          echo "SA=$SA" >> $GITHUB_ENV
+
+          az storage account create \
+            -g $RG -n $SA -l $LOC \
+            --sku Standard_LRS \
+            --kind StorageV2
+
+          SA_KEY=$(az storage account keys list -g $RG -n $SA --query "[0].value" -o tsv)
+          echo "SA_KEY=$SA_KEY" >> $GITHUB_ENV
+
+          az storage share-rm create --storage-account $SA --name pgdata --quota 10
+          az storage share-rm create --storage-account $SA --name caddydata --quota 1
+
+      - name: Deploy DB (PostgreSQL) to ACI
+        run: |
+          # PostgreSQL 컨테이너 (Azure Files에 데이터 영속화)
+          az container create \
+            -g $RG -n $DB_NAME -l $LOC \
+            --image postgres:16 \
+            --dns-name-label "sgjo-db-${{ github.run_number }}" \
+            --ports 5432 \
+            --environment-variables \
+              POSTGRES_USER=$DB_USER \
+              POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }} \
+              POSTGRES_DB=$DB_DBNAME \
+            --azure-file-volume-account-name $SA \
+            --azure-file-volume-account-key $SA_KEY \
+            --azure-file-volume-share-name pgdata \
+            --azure-file-volume-mount-path /var/lib/postgresql/data \
+            --restart-policy Always
+
+      - name: Deploy backend to ACI
+        run: |
+          # DB는 같은 VNET이 없으면 public로 접근하게 됨(실습용 OK)
+          DB_HOST=$(az container show -g $RG -n $DB_NAME --query ipAddress.fqdn -o tsv)
+
+          az container create \
+            -g $RG -n $BACK_NAME -l $LOC \
+            --image $BACK_TAG \
+            --registry-login-server $ACR.azurecr.io \
+            --registry-username $ACR_USER \
+            --registry-password $ACR_PASS \
+            --dns-name-label $BACK_DNS \
+            --ports 8000 \
+            --environment-variables \
+              DB_HOST=$DB_HOST \
+              DB_PORT=5432 \
+              DB_NAME=$DB_DBNAME \
+              DB_USER=$DB_USER \
+              DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+            --restart-policy Always
+
+      - name: Deploy frontend (Caddy HTTPS) to ACI
+        run: |
+          API_BASE="http://$BACK_DNS.$LOC.azurecontainer.io:8000"
+
+          az container create \
+            -g $RG -n $FRONT_NAME -l $LOC \
+            --image $FRONT_TAG \
+            --registry-login-server $ACR.azurecr.io \
+            --registry-username $ACR_USER \
+            --registry-password $ACR_PASS \
+            --dns-name-label $FRONT_DNS \
+            --ports 80 443 \
+            --environment-variables \
+              NEXT_PUBLIC_API_BASE=$API_BASE \
+              FRONT_DOMAIN=$FRONT_DOMAIN \
+            --azure-file-volume-account-name $SA \
+            --azure-file-volume-account-key $SA_KEY \
+            --azure-file-volume-share-name caddydata \
+            --azure-file-volume-mount-path /data \
+            --restart-policy Always
+
+      - name: Print URLs
+        run: |
+          echo "BACKEND URL: http://$BACK_DNS.$LOC.azurecontainer.io:8000"
+          echo "FRONTEND URL: https://$FRONT_DOMAIN (DNS 연결 후)"
+          echo "FRONT ACI FQDN: $FRONT_DNS.$LOC.azurecontainer.io"
