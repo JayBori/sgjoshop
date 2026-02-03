@@ -76,12 +76,22 @@ def init_db():
         def img(path, fallback):
             return f"{IMAGE_BASE.rstrip('/')}/{path}" if IMAGE_BASE else fallback
         seed_rows = [
-            ("SKU-001", "Classic Tee", "Soft cotton T-shirt in various colors.", 19.99, img("classic-tee.jpg", "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=600"), 200),
-            ("SKU-002", "Denim Jacket", "Timeless denim jacket with a modern fit.", 59.0, img("denim-jacket.jpg", "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600"), 80),
-            ("SKU-003", "Running Shoes", "Lightweight sneakers for everyday comfort.", 89.0, img("running-shoes.jpg", "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600"), 120),
-            ("SKU-004", "Wireless Earbuds", "True wireless earbuds with noise isolation.", 49.0, img("wireless-earbuds.jpg", "https://images.unsplash.com/photo-1585386959984-a41552231658?w=600"), 150),
-            ("SKU-005", "Backpack", "Durable backpack with 15\" laptop sleeve.", 39.0, img("backpack.jpg", "https://images.unsplash.com/photo-1514477917009-389c76a86b68?w=600"), 60),
-            ("SKU-006", "Water Bottle", "Insulated stainless steel, 600ml.", 15.0, img("water-bottle.jpg", "https://images.unsplash.com/photo-1526404954014-2fa806b5aa47?w=600"), 300),
+            ("SKU-001", "Classic Tee - White", "부드러운 코튼 티셔츠, 데일리 기본템.", 19.0, img("tee-white.jpg", "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=600"), 200),
+            ("SKU-002", "Classic Tee - Black", "어떤 코디에도 잘 어울리는 블랙 티.", 19.0, img("tee-black.jpg", "https://images.unsplash.com/photo-1503342217505-b0a15cf70489?w=600"), 200),
+            ("SKU-003", "Oxford Shirt", "탄탄한 옥스포드 셔츠, 출근/캐주얼 OK.", 39.0, img("shirt-oxford.jpg", "https://images.unsplash.com/photo-1520975922131-cf1bd6bbee70?w=600"), 120),
+            ("SKU-004", "Flannel Shirt", "따뜻한 플란넬 셔츠, 가을/겨울 필수.", 42.0, img("shirt-flannel.jpg", "https://images.unsplash.com/photo-1539533113208-f6df8cc8b543?w=600"), 90),
+            ("SKU-005", "Slim Jeans", "슬림 스트레이트 핏 데님.", 55.0, img("jeans-slim.jpg", "https://images.unsplash.com/photo-1519741497674-611481863552?w=600"), 150),
+            ("SKU-006", "Regular Jeans", "편안한 레귤러 핏 데님.", 49.0, img("jeans-regular.jpg", "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=600"), 150),
+            ("SKU-007", "Bomber Jacket", "미니멀 봄버 자켓, 간절기 아우터.", 89.0, img("jacket-bomber.jpg", "https://images.unsplash.com/photo-1542060748-10c28b62716f?w=600"), 80),
+            ("SKU-008", "Trench Coat", "클래식 트렌치 코트, 정석 실루엣.", 129.0, img("jacket-trench.jpg", "https://images.unsplash.com/photo-1503342217505-b0a15cf70489?w=600"), 60),
+            ("SKU-009", "Hoodie - Gray", "기본 핏 후디, 포근한 기모 안감.", 45.0, img("hoodie-gray.jpg", "https://images.unsplash.com/photo-1516826957135-700dedea698c?w=600"), 140),
+            ("SKU-010", "Hoodie - Navy", "베이직 네이비 후디, 남녀공용.", 45.0, img("hoodie-navy.jpg", "https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?w=600"), 140),
+            ("SKU-011", "Pleated Skirt", "차분한 플리츠 스커트, 데일리룩.", 49.0, img("skirt-pleated.jpg", "https://images.unsplash.com/photo-1503342217505-b0a15cf70489?w=600"), 100),
+            ("SKU-012", "Midi Dress", "미디 원피스, 편안한 실루엣.", 69.0, img("dress-midi.jpg", "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=600"), 90),
+            ("SKU-013", "Sneakers - White", "심플 화이트 스니커즈.", 79.0, img("sneakers-white.jpg", "https://images.unsplash.com/photo-1528701800489-20be3c2ea3f1?w=600"), 110),
+            ("SKU-014", "Chelsea Boots", "스웨이드 첼시부츠, 포멀/캐주얼 연출.", 119.0, img("boots-chelsea.jpg", "https://images.unsplash.com/photo-1519741497674-611481863552?w=600"), 70),
+            ("SKU-015", "Basic Cap", "심플 로우캡, 사계절 필수.", 19.0, img("cap-basic.jpg", "https://images.unsplash.com/photo-1519741497674-611481863552?w=600"), 200),
+            ("SKU-016", "Tote Bag", "데일리 코튼 토트백.", 25.0, img("bag-tote.jpg", "https://images.unsplash.com/photo-1520975922131-cf1bd6bbee70?w=600"), 160),
         ]
         cur.executemany(
             "INSERT INTO products(sku,name,description,price,image_url,stock) VALUES (?,?,?,?,?,?)",
@@ -132,12 +142,22 @@ def reseed():
     def img(path, fallback):
         return f"{IMAGE_BASE.rstrip('/')}/{path}" if IMAGE_BASE else fallback
     seed_rows = [
-        ("SKU-001", "Classic Tee", "Soft cotton T-shirt in various colors.", 19.99, img("classic-tee.jpg", "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=600"), 200),
-        ("SKU-002", "Denim Jacket", "Timeless denim jacket with a modern fit.", 59.0, img("denim-jacket.jpg", "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600"), 80),
-        ("SKU-003", "Running Shoes", "Lightweight sneakers for everyday comfort.", 89.0, img("running-shoes.jpg", "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600"), 120),
-        ("SKU-004", "Wireless Earbuds", "True wireless earbuds with noise isolation.", 49.0, img("wireless-earbuds.jpg", "https://images.unsplash.com/photo-1585386959984-a41552231658?w=600"), 150),
-        ("SKU-005", "Backpack", "Durable backpack with 15\" laptop sleeve.", 39.0, img("backpack.jpg", "https://images.unsplash.com/photo-1514477917009-389c76a86b68?w=600"), 60),
-        ("SKU-006", "Water Bottle", "Insulated stainless steel, 600ml.", 15.0, img("water-bottle.jpg", "https://images.unsplash.com/photo-1526404954014-2fa806b5aa47?w=600"), 300),
+        ("SKU-001", "Classic Tee - White", "부드러운 코튼 티셔츠, 데일리 기본템.", 19.0, img("tee-white.jpg", "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=600"), 200),
+        ("SKU-002", "Classic Tee - Black", "어떤 코디에도 잘 어울리는 블랙 티.", 19.0, img("tee-black.jpg", "https://images.unsplash.com/photo-1503342217505-b0a15cf70489?w=600"), 200),
+        ("SKU-003", "Oxford Shirt", "탄탄한 옥스포드 셔츠, 출근/캐주얼 OK.", 39.0, img("shirt-oxford.jpg", "https://images.unsplash.com/photo-1520975922131-cf1bd6bbee70?w=600"), 120),
+        ("SKU-004", "Flannel Shirt", "따뜻한 플란넬 셔츠, 가을/겨울 필수.", 42.0, img("shirt-flannel.jpg", "https://images.unsplash.com/photo-1539533113208-f6df8cc8b543?w=600"), 90),
+        ("SKU-005", "Slim Jeans", "슬림 스트레이트 핏 데님.", 55.0, img("jeans-slim.jpg", "https://images.unsplash.com/photo-1519741497674-611481863552?w=600"), 150),
+        ("SKU-006", "Regular Jeans", "편안한 레귤러 핏 데님.", 49.0, img("jeans-regular.jpg", "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=600"), 150),
+        ("SKU-007", "Bomber Jacket", "미니멀 봄버 자켓, 간절기 아우터.", 89.0, img("jacket-bomber.jpg", "https://images.unsplash.com/photo-1542060748-10c28b62716f?w=600"), 80),
+        ("SKU-008", "Trench Coat", "클래식 트렌치 코트, 정석 실루엣.", 129.0, img("jacket-trench.jpg", "https://images.unsplash.com/photo-1503342217505-b0a15cf70489?w=600"), 60),
+        ("SKU-009", "Hoodie - Gray", "기본 핏 후디, 포근한 기모 안감.", 45.0, img("hoodie-gray.jpg", "https://images.unsplash.com/photo-1516826957135-700dedea698c?w=600"), 140),
+        ("SKU-010", "Hoodie - Navy", "베이직 네이비 후디, 남녀공용.", 45.0, img("hoodie-navy.jpg", "https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?w=600"), 140),
+        ("SKU-011", "Pleated Skirt", "차분한 플리츠 스커트, 데일리룩.", 49.0, img("skirt-pleated.jpg", "https://images.unsplash.com/photo-1503342217505-b0a15cf70489?w=600"), 100),
+        ("SKU-012", "Midi Dress", "미디 원피스, 편안한 실루엣.", 69.0, img("dress-midi.jpg", "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=600"), 90),
+        ("SKU-013", "Sneakers - White", "심플 화이트 스니커즈.", 79.0, img("sneakers-white.jpg", "https://images.unsplash.com/photo-1528701800489-20be3c2ea3f1?w=600"), 110),
+        ("SKU-014", "Chelsea Boots", "스웨이드 첼시부츠, 포멀/캐주얼 연출.", 119.0, img("boots-chelsea.jpg", "https://images.unsplash.com/photo-1519741497674-611481863552?w=600"), 70),
+        ("SKU-015", "Basic Cap", "심플 로우캡, 사계절 필수.", 19.0, img("cap-basic.jpg", "https://images.unsplash.com/photo-1519741497674-611481863552?w=600"), 200),
+        ("SKU-016", "Tote Bag", "데일리 코튼 토트백.", 25.0, img("bag-tote.jpg", "https://images.unsplash.com/photo-1520975922131-cf1bd6bbee70?w=600"), 160),
     ]
     cur.executemany(
         "INSERT INTO products(sku,name,description,price,image_url,stock) VALUES (?,?,?,?,?,?)",
