@@ -14,6 +14,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
+        <div className="promo">오늘 가입하고 10% 할인 쿠폰 받기</div>
         <header className="site-header">
           <div className="container header-inner">
             <div className="brand">SGJO Shop</div>

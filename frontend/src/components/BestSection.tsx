@@ -34,7 +34,11 @@ export default function BestSection({ products }: { products: any[] }) {
           {list.map((p, i) => (
             <div className="slide" key={p.id}>
               <div className="rank">{i+1}</div>
-              <img src={p.image_url || "/placeholder.png"} alt={p.name} />
+              <img
+                src={p.image_url || "/placeholder.svg"}
+                alt={p.name}
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }}
+              />
               <div className="meta">
                 <div className="brand">SGJO</div>
                 <div className="name">{p.name}</div>
@@ -52,4 +56,3 @@ export default function BestSection({ products }: { products: any[] }) {
     </section>
   );
 }
-

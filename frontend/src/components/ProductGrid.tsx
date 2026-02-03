@@ -20,17 +20,25 @@ export default function ProductGrid({ products }: { products: any[] }) {
   return (
     <div className="container" id="products" style={{ paddingTop: 24, paddingBottom: 24 }}>
       <div className="toolbar">
-        <div style={{ fontWeight: 700 }}>추천 상품</div>
+        <div style={{ fontWeight: 800, fontSize: 18 }}>추천 상품</div>
         <div style={{ opacity: 0.7 }}>총 {count}개 담김</div>
       </div>
       <div className="grid">
         {products.map((p) => (
           <div className="card" key={p.id}>
-            <img src={p.image_url || "/placeholder.png"} alt={p.name} />
+            <img
+              src={p.image_url || "/placeholder.svg"}
+              alt={p.name}
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }}
+            />
             <div className="body">
-              <div style={{ fontWeight: 700 }}>{p.name}</div>
-              <div style={{ color: "#555", marginTop: 6 }}>{p.description}</div>
-              <div className="price">{formatMoney(p.price)}</div>
+              <div style={{ fontSize: 12, color: "#777" }}>SGJO</div>
+              <div style={{ fontWeight: 700, marginTop: 2 }}>{p.name}</div>
+              <div style={{ color: "#555", marginTop: 6, height: 36, overflow: "hidden" }}>{p.description}</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "baseline", marginTop: 8 }}>
+                <span className="price">{formatMoney(p.price)}</span>
+                <span style={{ color: "#ef4444", fontWeight: 700, fontSize: 12 }}>NEW</span>
+              </div>
               <button className="btn" onClick={async () => { await api.add(p.id, 1); await refresh(); }} style={{ marginTop: 10 }}>장바구니 담기</button>
             </div>
           </div>
@@ -41,4 +49,3 @@ export default function ProductGrid({ products }: { products: any[] }) {
     </div>
   );
 }
-

@@ -9,6 +9,7 @@ html,body{padding:0;margin:0;background:var(--bg);color:var(--text);font-family:
 .hero{background:linear-gradient(120deg,#ecfeff,#f0fdf4);padding:48px 0;border-bottom:1px solid var(--border)}
 .hero h1{margin:0;font-size:36px}
 .hero p{margin:12px 0 0;color:var(--muted)}
+.promo{background:#0ea5e9;color:#fff;text-align:center;padding:6px 0;font-weight:700}
 .grid{display:grid;grid-template-columns:repeat(1,minmax(0,1fr));gap:16px}
 @media(min-width:640px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(min-width:920px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
