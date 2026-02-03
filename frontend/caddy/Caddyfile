@@ -1,4 +1,8 @@
-{$FRONT_DOMAIN} {
-  encode zstd gzip
+:80 {
+  reverse_proxy 127.0.0.1:3000
+}
+
+:443 {
+  tls internal
   reverse_proxy 127.0.0.1:3000
 }
