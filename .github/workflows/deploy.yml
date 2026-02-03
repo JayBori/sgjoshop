@@ -141,7 +141,7 @@ jobs:
             --azure-file-volume-account-key $SA_KEY \
             --azure-file-volume-share-name pgdata \
             --azure-file-volume-mount-path /var/lib/postgresql/data \
-            --restart-policy Always
+            --restart-policy Never
 
       - name: Wait for DB and init data
         run: |
