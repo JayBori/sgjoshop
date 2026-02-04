@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from jose import jwt, JWTError
 from passlib.context import CryptContext
+from azure.storage.blob import BlobServiceClient
 
 app = FastAPI()
 app.add_middleware(
@@ -406,6 +407,7 @@ def admin_list_products(_: dict = Depends(require_admin)):
 
 @app.post("/admin/products")
 
+
 def admin_create_product(
     sku: str = Form(...),
     name: str = Form(...),
@@ -419,10 +421,16 @@ def admin_create_product(
     if image is not None:
         ext = os.path.splitext(image.filename)[1]
         fname = f"{uuid.uuid4().hex}{ext}"
-        dest = os.path.join(UPLOAD_DIR, fname)
-        with open(dest, "wb") as f:
-            f.write(image.file.read())
-        image_url = f"/images/{fname}"
+        data = image.file.read()
+        blob_url = _upload_to_blob_if_configured(fname, data)
+        if blob_url:
+            image_url = blob_url
+        else:
+            dest = os.path.join(UPLOAD_DIR, fname)
+            with open(dest, "wb") as f:
+                f.write(data)
+            base = os.getenv("IMAGE_BASE", "")
+            image_url = f"{base.rstrip('/')}/images/{fname}" if base else f"/images/{fname}"
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
@@ -433,8 +441,6 @@ def admin_create_product(
     pid = cur.lastrowid
     conn.close()
     return {"id": pid}
-
-
 @app.put("/admin/products/{pid}")
 
 def admin_update_product(
@@ -468,20 +474,24 @@ def admin_update_product(
     if image is not None:
         ext = os.path.splitext(image.filename)[1]
         fname = f"{uuid.uuid4().hex}{ext}"
-        dest = os.path.join(UPLOAD_DIR, fname)
-        with open(dest, "wb") as f:
-            f.write(image.file.read())
-        sets.append("image_url=?"); vals.append(f"/images/{fname}")
+        data = image.file.read()
+        blob_url = _upload_to_blob_if_configured(fname, data)
+        if blob_url:
+            sets.append("image_url=?"); vals.append(blob_url)
+        else:
+            dest = os.path.join(UPLOAD_DIR, fname)
+            with open(dest, "wb") as f:
+                f.write(data)
+            base = os.getenv("IMAGE_BASE", "")
+            url = f"{base.rstrip('/')}/images/{fname}" if base else f"/images/{fname}"
+            sets.append("image_url=?"); vals.append(url)
     if not sets:
         conn.close(); return {"ok": True}
     vals.append(pid)
     cur.execute(f"UPDATE products SET {', '.join(sets)} WHERE id=?", tuple(vals))
     conn.commit()
     conn.close()
-    return {"ok": True}
-
-
-@app.delete("/admin/products/{pid}")
+    return {"ok": True}\n\n@app.delete("/admin/products/{pid}")
 
 def admin_delete_product(pid: int, _: dict = Depends(require_admin)):
     conn = sqlite3.connect(DB_PATH)
@@ -512,4 +522,28 @@ def init_seed():
         return {"ok": True, "seeded": len(seed_rows)}
     conn.close()
     return {"ok": True, "seeded": 0}
+
+
+def _upload_to_blob_if_configured(filename: str, data: bytes) -> Optional[str]:
+    conn_str = os.getenv("AZURE_BLOB_CONNECTION_STRING")
+    container = os.getenv("AZURE_BLOB_CONTAINER")
+    if not conn_str or not container:
+        return None
+    try:
+        svc = BlobServiceClient.from_connection_string(conn_str)
+        try:
+            svc.create_container(container)
+        except Exception:
+            pass
+        blob_name = filename
+        url = svc.get_blob_client(container=container, blob=blob_name)
+        url.upload_blob(data, overwrite=True)
+        return url.url
+    except Exception as e:
+        return None
+
+
+
+
+
 

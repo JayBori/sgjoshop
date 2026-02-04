@@ -1,4 +1,4 @@
-name: build-push-deploy-aci
+﻿name: build-push-deploy-aci
 
 on:
   push:
@@ -26,7 +26,7 @@ jobs:
       FRONT_DOMAIN: www.sgjo.shop
       DNS_ZONE: sgjo.shop
 
-      # Storage Account (고정/재사용). 전역 유니크여야 함!
+      # Storage Account (ê³ ì •/ìž¬ì‚¬ìš©). ì „ì—­ ìœ ë‹ˆí¬ì—¬ì•¼ í•¨!
       SA: sgjoshopstorekrc01
 
     steps:
@@ -73,9 +73,9 @@ jobs:
           SA_KEY=$(az storage account keys list -g $RG -n $SA --query "[0].value" -o tsv)
           echo "SA_KEY=$SA_KEY" >> $GITHUB_ENV
 
-          # Front(Caddy) 인증서 저장용 + Backend(SQLite db 파일) 저장용
+          # Front(Caddy) ì¸ì¦ì„œ ì €ìž¥ìš© + Backend(SQLite db íŒŒì¼) ì €ìž¥ìš©
           az storage share create --account-name $SA --account-key $SA_KEY --name caddydata --quota 1
-          az storage share create --account-name $SA --account-key $SA_KEY --name appdata --quota 10
+          az storage share create --account-name $SA --account-key $SA_KEY --name appdata --quota 10\n\n          # Ensure blob container for product images\n          az storage container create --account-name $SA --account-key $SA_KEY --name product-images --public-access blob | Out-Null
 
       - name: Build & Push backend
         run: |
@@ -115,7 +115,11 @@ jobs:
             --azure-file-volume-mount-path /data \
             --environment-variables \
               DB_PATH=/data/shop.db \
-              DB_TYPE=sqlite \
+              DB_TYPE=sqlite \ \
+              IMAGE_BASE=http://$BACK_DNS.$LOC.azurecontainer.io:8000 \
+              AZURE_BLOB_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=$SA;AccountKey=$SA_KEY;EndpointSuffix=core.windows.net \
+              AZURE_BLOB_CONTAINER=product-images \
+
             --restart-policy Never
 
       - name: Deploy frontend (Caddy HTTPS) to ACI
@@ -169,8 +173,9 @@ jobs:
       - name: Print URLs
         run: |
           echo "BACKEND: http://$BACK_DNS.$LOC.azurecontainer.io:8000"
-          echo "FRONT:   http://$FRONT_DNS.$LOC.azurecontainer.io (DNS 전)"
-          echo "FRONT:   https://$FRONT_DOMAIN (DNS 연결 후)"
+          echo "FRONT:   http://$FRONT_DNS.$LOC.azurecontainer.io (DNS ì „)"
+          echo "FRONT:   https://$FRONT_DOMAIN (DNS ì—°ê²° í›„)"
           echo ""
           echo "Next step:"
           echo "  POST http://$BACK_DNS.$LOC.azurecontainer.io:8000/init  (seed data)"
+

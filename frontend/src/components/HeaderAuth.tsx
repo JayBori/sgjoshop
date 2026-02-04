@@ -13,7 +13,7 @@ export default function HeaderAuth() {
     location.href = '/'
   }
   if (!token) {
-    return <a href="/login">Login</a>
+    return <a href="/로그인">로그인</a>
   }
   return (
     <>
@@ -22,4 +22,5 @@ export default function HeaderAuth() {
     </>
   )
 }
+
 
