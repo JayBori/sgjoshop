@@ -491,7 +491,9 @@ def admin_update_product(
     cur.execute(f"UPDATE products SET {', '.join(sets)} WHERE id=?", tuple(vals))
     conn.commit()
     conn.close()
-    return {"ok": True}\n\n@app.delete("/admin/products/{pid}")
+    return {"ok": True}
+
+@app.delete("/admin/products/{pid}")
 
 def admin_delete_product(pid: int, _: dict = Depends(require_admin)):
     conn = sqlite3.connect(DB_PATH)
@@ -541,6 +543,8 @@ def _upload_to_blob_if_configured(filename: str, data: bytes) -> Optional[str]:
         return url.url
     except Exception as e:
         return None
+
+
 
 
 
