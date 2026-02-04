@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sqlite3
 import uuid
 from datetime import datetime, timedelta
@@ -26,7 +26,7 @@ UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/data/uploads")
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "120"))
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -512,3 +512,4 @@ def init_seed():
         return {"ok": True, "seeded": len(seed_rows)}
     conn.close()
     return {"ok": True, "seeded": 0}
+
