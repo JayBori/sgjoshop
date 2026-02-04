@@ -1,7 +1,7 @@
 ﻿export const dynamic = "force-dynamic";
 
 async function getProducts() {
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE!;
+  import { getApiBase } from "../lib/getApiBase";\n  const apiBase = getApiBase();
   const res = await fetch(`${apiBase}/products`, { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to fetch products");
   return res.json();
@@ -31,3 +31,4 @@ export default async function Home() {
     </main>
   );
 }
+

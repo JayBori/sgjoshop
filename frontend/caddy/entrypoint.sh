@@ -1,13 +1,12 @@
-﻿#!/bin/sh
+#!/bin/sh
 set -e
 
-# Next standalone ì„œë²„ë¥¼ 0.0.0.0ë¡œ ë°”ì¸ë”© ê°•ì œ
-export HOSTNAME=0.0.0.0
-export PORT=3000
-
-API_BASE_VALUE=${NEXT_PUBLIC_API_BASE:-}
+# Prepare runtime config for client-side
+API_BASE_VALUE="${NEXT_PUBLIC_API_BASE:-/api}"
 echo "window.__RUNTIME_CONFIG__ = { API_BASE: \"$API_BASE_VALUE\" };" > /srv/public/runtime-config.js
+
+# Start Next.js standalone server
 node /srv/server.js &
 
+# Run Caddy
 exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
-
