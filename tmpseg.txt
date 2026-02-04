@@ -1,0 +1,11 @@
+ets.AZURE_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create RG (if not exists)
+        run: |
+          set -e
+          az group create -n $RG -l $LOC
+
+      - name: Ensure ACR exists
+        run: |

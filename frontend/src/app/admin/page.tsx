@@ -1,7 +1,7 @@
 ﻿'use client'
 import { useEffect, useState } from 'react'
 
-const apiBase = process.env.NEXT_PUBLIC_API_BASE!
+import { getApiBase } from "@/src/lib/getApiBase"\n\nconst apiBase = getApiBase()
 
 type Product = { id:number; sku:string; name:string; description:string; price:number; image_url:string; stock:number }
 
@@ -114,3 +114,4 @@ export default function AdminPage(){
     </main>
   )
 }
+

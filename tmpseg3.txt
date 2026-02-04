@@ -1,0 +1,12 @@
+/null 2>&1 || az acr create -n $ACR -g $RG --sku Basic
+          az acr update -n $ACR --admin-enabled true
+
+      - name: ACR Login (docker with retries)
+        run: |
+          set -e
+          ACR_USER=$(az acr credential show -n $ACR --query username -o tsv)
+          ACR_PASS=$(az acr credential show -n $ACR --query "passwords[0].value" -o tsv)
+          echo "ACR_USER=$ACR_USER" >> $GITHUB_ENV
+          echo "ACR_PASS=$ACR_PASS" >> $GITHUB_ENV
+          for i in {1..5}; do
+            doc

@@ -1,7 +1,7 @@
 ﻿'use client'
 import { useState } from 'react'
 
-const apiBase = process.env.NEXT_PUBLIC_API_BASE!
+import { getApiBase } from "@/src/lib/getApiBase"\n\nconst apiBase = getApiBase()
 
 export default function SignupPage(){
   const [username, setUsername] = useState('')
@@ -28,3 +28,4 @@ export default function SignupPage(){
     </main>
   )
 }
+

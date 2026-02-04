@@ -1,0 +1,13 @@
+ $RG -l $LOC
+
+      - name: Ensure ACR exists
+        run: |
+          set -e
+          az acr show -n $ACR -g $RG >/dev/null 2>&1 || az acr create -n $ACR -g $RG --sku Basic
+          az acr update -n $ACR --admin-enabled true
+
+      - name: ACR Login (docker with retries)
+        run: |
+          set -e
+          ACR_USER=$(az acr credential show -n $ACR --query username -o tsv)
+          ACR_PA

@@ -1,7 +1,7 @@
 ﻿'use client'
 import { useEffect, useState } from 'react'
 
-const apiBase = process.env.NEXT_PUBLIC_API_BASE!
+import { getApiBase } from "@/src/lib/getApiBase"\n\nconst apiBase = getApiBase()
 
 export default function ChangePasswordPage(){
   const [newPassword, setNewPassword] = useState('')
@@ -35,3 +35,4 @@ export default function ChangePasswordPage(){
     </main>
   )
 }
+
