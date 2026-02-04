@@ -429,6 +429,21 @@ def list_products(q: Optional[str] = None):
     ]
 
 
+@app.get("/products/{pid}")
+def get_product(pid: int):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT id, sku, name, description, price, image_url, stock FROM products WHERE id=?", (pid,))
+    r = cur.fetchone()
+    if not r:
+        conn.close(); raise HTTPException(404, "not found")
+    # categories
+    cur.execute("SELECT c.id, c.name, c.slug FROM product_categories pc JOIN categories c ON c.id=pc.category_id WHERE pc.product_id=?", (pid,))
+    cats = [{"id":x[0],"name":x[1],"slug":x[2]} for x in cur.fetchall()]
+    conn.close()
+    return {"id": r[0], "sku": r[1], "name": r[2], "description": r[3], "price": r[4], "image_url": r[5], "stock": r[6], "categories": cats}
+
+
 # Cart / Orders (existing minimal)
 @app.get("/cart")
 def get_cart(cart_id: str = Query(...)):
@@ -855,6 +870,27 @@ def admin_list_categories(_: dict = Depends(require_admin)):
     cur.execute("SELECT id, name, slug, sort FROM categories ORDER BY sort ASC, id DESC")
     rows = cur.fetchall(); conn.close()
     return [{"id":r[0],"name":r[1],"slug":r[2],"sort":r[3]} for r in rows]
+
+
+@app.get("/categories")
+def public_list_categories():
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT id, name, slug, sort FROM categories ORDER BY sort ASC, id DESC")
+    rows = cur.fetchall(); conn.close()
+    return [{"id":r[0],"name":r[1],"slug":r[2],"sort":r[3]} for r in rows]
+
+
+@app.get("/categories/{slug}/products")
+def public_category_products(slug: str):
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT id FROM categories WHERE slug=?", (slug,))
+    row = cur.fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, 'category not found')
+    cid = row[0]
+    cur.execute("SELECT p.id, p.sku, p.name, p.description, p.price, p.image_url, p.stock FROM product_categories pc JOIN products p ON p.id=pc.product_id WHERE pc.category_id=? ORDER BY p.id DESC", (cid,))
+    rows = cur.fetchall(); conn.close()
+    return [{"id":r[0],"sku":r[1],"name":r[2],"description":r[3],"price":r[4],"image_url":r[5],"stock":r[6]} for r in rows]
 
 
 @app.post("/admin/categories")

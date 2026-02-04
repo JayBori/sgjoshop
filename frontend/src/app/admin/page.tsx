@@ -13,7 +13,8 @@ export default function AdminPage(){
   const [token, setToken] = useState<string|null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [users, setUsers] = useState<any[]>([])
-  const [tab, setTab] = useState<'products'|'users'|'settings'|'categories'|'media'|'coupons'|'orders'|'dashboard'>('products')
+  const [tab, setTab] = useState<'products'|'users'|'settings'|'categories'|'media'|'coupons'|'orders'|'dashboard'|'logs'>('products')
+  const [logs, setLogs] = useState<string[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [media, setMedia] = useState<MediaItem[]>([])
   const [coupons, setCoupons] = useState<Coupon[]>([])
@@ -157,6 +158,13 @@ export default function AdminPage(){
     const r = await fetch(`${getApiBase()}/admin/orders/${id}`, { method:'PUT', headers:{ Authorization:`Bearer ${token}` }, body: fd });
     if(r.ok) loadOrders(token);
   }
+  async function loadLogs(level?: string){
+    if(!token) return;
+    const url = new URL(`${getApiBase()}/admin/logs`, location.origin)
+    if(level) url.searchParams.set('level', level)
+    const r = await fetch(url.toString(), { headers:{ Authorization:`Bearer ${token}` } });
+    if(r.ok){ const j = await r.json(); setLogs(j.lines||[]) }
+  }
 
   return (
     <main className="container">
@@ -170,6 +178,7 @@ export default function AdminPage(){
         <button onClick={()=>setTab('coupons')}>쿠폰</button>
         <button onClick={()=>setTab('orders')}>주문</button>
         <button onClick={()=>setTab('users')}>사용자</button>
+        <button onClick={()=>{ setTab('logs'); loadLogs(); }}>로그</button>
       </div>
 
       {tab==='dashboard' && dashboard && (
@@ -334,6 +343,21 @@ export default function AdminPage(){
               </tr>
             ))}
           </tbody></table>
+        </section>
+      )}
+
+      {tab==='logs' && (
+        <section>
+          <h2>로그 뷰어</h2>
+          <div style={{marginBottom:8}}>
+            <button onClick={()=>loadLogs()}>전체</button>
+            <button onClick={()=>loadLogs('INFO')} style={{marginLeft:4}}>INFO</button>
+            <button onClick={()=>loadLogs('WARNING')} style={{marginLeft:4}}>WARNING</button>
+            <button onClick={()=>loadLogs('ERROR')} style={{marginLeft:4}}>ERROR</button>
+          </div>
+          <pre style={{background:'#0b1020', color:'#e5e7eb', padding:12, borderRadius:8, maxHeight:400, overflow:'auto'}}>
+{logs.join('\n')}
+          </pre>
         </section>
       )}
 
