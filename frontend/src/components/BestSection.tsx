@@ -19,17 +19,17 @@ export default function BestSection({ products }: { products: any[] }) {
       <h2 style={{ textAlign: "center", margin: 0, fontSize: 28, fontWeight: 800 }}>Best</h2>
       <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 12 }}>
         {[
-          {k:"realtime", t:"실시간"},
-          {k:"daily", t:"일간"},
-          {k:"weekly", t:"주간"},
-          {k:"monthly", t:"월간"},
+          {k:"realtime", t:"???"},
+          {k:"daily", t:"??"},
+          {k:"weekly", t:"??"},
+          {k:"monthly", t:"??"},
         ].map(x => (
           <button key={x.k} className="tab" data-active={period===x.k} onClick={()=>setPeriod(x.k as any)}>{x.t}</button>
         ))}
       </div>
 
       <div className="carousel">
-        <button className="nav prev" onClick={()=>scroll(-1)}>‹</button>
+        <button className="nav prev" onClick={()=>scroll(-1)}>??</button>
         <div className="track" ref={scRef}>
           {list.map((p, i) => (
             <div className="slide" key={p.id}>
@@ -47,11 +47,11 @@ export default function BestSection({ products }: { products: any[] }) {
             </div>
           ))}
         </div>
-        <button className="nav next" onClick={()=>scroll(1)}>›</button>
+        <button className="nav next" onClick={()=>scroll(1)}>??</button>
       </div>
 
       <div style={{ display:"flex", justifyContent:"center", marginTop: 16 }}>
-        <a className="btn" style={{ background: "#fff", color: "#111", border: "1px solid #e5e7eb" }} href="#products">베스트 상품 더보기</a>
+        <a className="btn" style={{ background: "#fff", color: "#111", border: "1px solid #e5e7eb" }} href="#products">??? ?? ???</a>
       </div>
     </section>
   );
