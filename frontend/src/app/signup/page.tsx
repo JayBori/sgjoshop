@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { getApiBase } from "../../lib/getApiBase"
 
-const apiBase = getApiBase()
+
 
 export default function SignupPage(){
   const [username, setUsername] = useState('')
@@ -19,7 +19,7 @@ export default function SignupPage(){
     const u = username.trim()
     if(u.length < 3){ setMsg('아이디는 3자 이상'); return }
     try{
-      const r = await fetch(`${apiBase}/auth/check-username?u=${encodeURIComponent(u)}`)
+      const r = await fetch(`${getApiBase()}/auth/check-username?u=${encodeURIComponent(u)}`)
       if(r.ok){ const j = await r.json(); setAvailable(j.available) }
       else { setAvailable(null) }
     }catch{ setAvailable(null) }
@@ -34,7 +34,7 @@ export default function SignupPage(){
     try{
       setSubmitting(true)
       const body = new URLSearchParams({ username: username.trim(), password })
-      const res = await fetch(`${apiBase}/auth/signup`, { method: 'POST', body })
+      const res = await fetch(`${getApiBase()}/auth/signup`, { method: 'POST', body })
       if(!res.ok){
         const t = await res.text();
         setMsg(t || '가입 실패');
@@ -69,3 +69,4 @@ export default function SignupPage(){
     </main>
   )
 }
+

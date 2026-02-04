@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { getApiBase } from "../../lib/getApiBase"
 
-const apiBase = getApiBase()
+
 
 type Product = { id:number; sku:string; name:string; description:string; price:number; image_url:string; stock:number }
 
@@ -22,11 +22,11 @@ export default function AdminPage(){
   },[])
 
   async function loadProducts(){
-    const res = await fetch(`${apiBase}/products`, { cache:'no-store' })
+    const res = await fetch(`${getApiBase()}/products`, { cache:'no-store' })
     if(res.ok) setProducts(await res.json())
   }
   async function loadUsers(t:string){
-    const res = await fetch(`${apiBase}/admin/users`, { headers: { Authorization: `Bearer ${t}` } })
+    const res = await fetch(`${getApiBase()}/admin/users`, { headers: { Authorization: `Bearer ${t}` } })
     if(res.ok) setUsers(await res.json())
   }
 
@@ -34,7 +34,7 @@ export default function AdminPage(){
     if(!token) return
     const fd = new FormData(form)
     const method = pid ? 'PUT' : 'POST'
-    const url = pid ? `${apiBase}/admin/products/${pid}` : `${apiBase}/admin/products`
+    const url = pid ? `${getApiBase()}/admin/products/${pid}` : `${getApiBase()}/admin/products`
     const res = await fetch(url, { method, headers: { Authorization: `Bearer ${token}` }, body: fd })
     if(res.ok){ await loadProducts(); form.reset() }
   }
@@ -42,7 +42,7 @@ export default function AdminPage(){
   async function del(pid:number){
     if(!token) return
     if(!confirm('삭제하시겠습니까?')) return
-    const res = await fetch(`${apiBase}/admin/products/${pid}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    const res = await fetch(`${getApiBase()}/admin/products/${pid}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
     if(res.ok) loadProducts()
   }
 
@@ -116,6 +116,7 @@ export default function AdminPage(){
     </main>
   )
 }
+
 
 
 

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { getApiBase } from "../../lib/getApiBase"
 
-const apiBase = getApiBase()
+
 
 export default function ChangePasswordPage(){
   const [newPassword, setNewPassword] = useState('')
@@ -19,7 +19,7 @@ export default function ChangePasswordPage(){
     const token = localStorage.getItem('token')
     if(!token){ setError('로그인이 필요합니다'); return }
     const body = new URLSearchParams({ new_password: newPassword })
-    const res = await fetch(`${apiBase}/auth/change-password`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body })
+    const res = await fetch(`${getApiBase()}/auth/change-password`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body })
     if(!res.ok){ setError('변경 실패'); return }
     localStorage.removeItem('mustChangePassword')
     setOk(true)
@@ -37,6 +37,7 @@ export default function ChangePasswordPage(){
     </main>
   )
 }
+
 
 
 

@@ -3,7 +3,7 @@ import { useState } from 'react'
 
 import { getApiBase } from "../../lib/getApiBase"
 
-const apiBase = getApiBase()
+
 
 export default function LoginPage(){
   const [username, setUsername] = useState('')
@@ -13,7 +13,7 @@ export default function LoginPage(){
     e.preventDefault()
     setError('')
     const body = new URLSearchParams({ username, password })
-    const res = await fetch(`${apiBase}/auth/login`, { method: 'POST', body })
+    const res = await fetch(`${getApiBase()}/auth/login`, { method: 'POST', body })
     if(!res.ok){ setError('로그인 실패'); return }
     const data = await res.json()
     localStorage.setItem('token', data.access_token)
@@ -37,6 +37,7 @@ export default function LoginPage(){
     </main>
   )
 }
+
 
 
 
