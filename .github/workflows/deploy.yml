@@ -45,19 +45,17 @@ jobs:
           az acr show -n $ACR -g $RG >/dev/null 2>&1 || az acr create -n $ACR -g $RG --sku Basic
           az acr update -n $ACR --admin-enabled true
 
-      - name: ACR Login
-        run: |
-          set -e
-          az acr login -n $ACR
-
-      - name: Get ACR credentials
+            - name: ACR Login (docker with retries)
         run: |
           set -e
           ACR_USER=$(az acr credential show -n $ACR --query username -o tsv)
           ACR_PASS=$(az acr credential show -n $ACR --query "passwords[0].value" -o tsv)
           echo "ACR_USER=$ACR_USER" >> $GITHUB_ENV
           echo "ACR_PASS=$ACR_PASS" >> $GITHUB_ENV
-
+          for i in {1..5}; do
+            docker login $ACR.azurecr.io -u "$ACR_USER" -p "$ACR_PASS" && break
+            echo "docker login retry $i"; sleep 5;
+          done
       - name: Ensure Storage Account + File Shares + Blob Container
         run: |
           set -e
@@ -109,3 +107,4 @@ jobs:
           az network dns record-set a add-record -g $RG -z $DNS_ZONE -n @ -a $FRONT_IP
           az network dns record-set cname show -g $RG -z $DNS_ZONE -n www >/dev/null 2>&1 || az network dns record-set cname create -g $RG -z $DNS_ZONE -n www --ttl 60
           az network dns record-set cname set-record -g $RG -z $DNS_ZONE -n www -c $FRONT_FQDN
+
