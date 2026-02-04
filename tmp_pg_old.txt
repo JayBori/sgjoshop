@@ -21,7 +21,7 @@ export default function ProductGrid({ products }: { products: any[] }) {
     <div className="container" id="products" style={{ paddingTop: 24, paddingBottom: 24 }}>
       <div className="toolbar">
         <div style={{ fontWeight: 800, fontSize: 18 }}>?? ??</div>
-        <div style={{ opacity: 0.7 }}>?? {count}?</div>
+        <div style={{ opacity: 0.7 }}>???? {count}?</div>
       </div>
       <div className="grid">
         {products.map((p) => (
@@ -46,7 +46,7 @@ export default function ProductGrid({ products }: { products: any[] }) {
           </div>
         ))}
       </div>
-      <button className="cart" onClick={() => setOpen(true)}>?? ???? {count}</button>
+      <button className="cart" onClick={() => setOpen(true)}>???? {count}</button>
       <CartDrawer open={open} onClose={() => setOpen(false)} />
     </div>
   );
