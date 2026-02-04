@@ -605,3 +605,68 @@ def reset_admin(new_password: str = Form(...)):
     conn.commit(); conn.close()
     _logger.warning("admin password reset via /auth/reset-admin")
     return {"ok": True}
+
+# Settings and role helpers
+@app.get("/auth/me")
+def auth_me(user=Depends(get_current_user)):
+    return user
+
+
+@app.get("/settings/public")
+def public_settings():
+    keys = ["promoText","heroTitle","heroSubtitle"]
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    out = {}
+    try:
+        cur.execute("CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT)")
+        for k in keys:
+            cur.execute("SELECT value FROM settings WHERE key=?", (k,))
+            row = cur.fetchone()
+            if row:
+                out[k] = row[0]
+    finally:
+        conn.close()
+    return out
+
+
+@app.get("/admin/settings")
+def admin_get_settings(_: dict = Depends(require_admin)):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT)")
+    cur.execute("SELECT key, value FROM settings")
+    rows = cur.fetchall()
+    conn.close()
+    return {k: v for (k, v) in rows}
+
+
+@app.put("/admin/settings")
+def admin_put_settings(payload: dict, _: dict = Depends(require_admin)):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT)")
+    for k, v in payload.items():
+        cur.execute(
+            "INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (k, str(v)),
+        )
+    conn.commit(); conn.close()
+    return {"ok": True}
+
+
+@app.delete("/admin/users/{uid}")
+def admin_delete_user(uid: int, _: dict = Depends(require_admin)):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT username FROM users WHERE id=?", (uid,))
+    row = cur.fetchone()
+    if not row:
+        conn.close();
+        raise HTTPException(404, "user not found")
+    if row[0] == 'admin':
+        conn.close();
+        raise HTTPException(400, "cannot delete admin user")
+    cur.execute("DELETE FROM users WHERE id=?", (uid,))
+    conn.commit(); conn.close()
+    return {"ok": True}
