@@ -1,4 +1,4 @@
-import "./globals.css";
+﻿import "./globals.css";
 import type React from "react";
 import HeaderAuth from "../components/HeaderAuth";
 
@@ -28,9 +28,10 @@ export default function RootLayout({
         </header>
         {children}
         <footer className="site-footer">
-          <div className="container">� {new Date().getFullYear()} SGJO Shop</div>
+          <div className="container">© {new Date().getFullYear()} SGJO Shop</div>
         </footer>
       </body>
     </html>
   );
 }
+

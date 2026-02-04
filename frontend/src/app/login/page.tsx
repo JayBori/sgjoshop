@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 import { useState } from 'react'
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE!
@@ -35,3 +35,4 @@ export default function LoginPage(){
     </main>
   )
 }
+
