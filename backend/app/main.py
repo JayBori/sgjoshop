@@ -101,6 +101,11 @@ def init_db():
         );
         """
     )
+    # ensure orders.status
+    cur.execute("PRAGMA table_info(orders);")
+    ocols = {row[1] for row in cur.fetchall()}
+    if "status" not in ocols:
+        cur.execute("ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'pending';")
 
     cur.execute(
         """
@@ -164,6 +169,65 @@ def init_db():
             "INSERT INTO products(sku, name, description, price, image_url, stock) VALUES (?,?,?,?,?,?)",
             seed_rows,
         )
+
+    # categories
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS categories(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT,
+          slug TEXT UNIQUE,
+          sort INTEGER DEFAULT 0
+        );
+        """
+    )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS product_categories(
+          product_id INTEGER,
+          category_id INTEGER,
+          PRIMARY KEY(product_id, category_id)
+        );
+        """
+    )
+
+    # media
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS media(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          filename TEXT,
+          url TEXT,
+          size INTEGER,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+
+    # coupons and cart_discounts
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS coupons(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          code TEXT UNIQUE,
+          type TEXT,
+          value REAL,
+          active INTEGER DEFAULT 1,
+          valid_from TEXT,
+          valid_to TEXT,
+          min_amount REAL DEFAULT 0
+        );
+        """
+    )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS cart_discounts(
+          cart_id TEXT PRIMARY KEY,
+          code TEXT,
+          discount REAL
+        );
+        """
+    )
 
     conn.commit()
     conn.close()
@@ -395,7 +459,14 @@ def get_cart(cart_id: str = Query(...)):
     ]
     total = sum(i[1] * i[3] for i in rows)
     count = sum(i[1] for i in rows)
-    return {"cart_id": cart_id, "count": count, "total": total, "items": items}
+    cur = sqlite3.connect(DB_PATH).cursor()
+    conn2 = sqlite3.connect(DB_PATH)
+    cur2 = conn2.cursor()
+    cur2.execute("SELECT code, discount FROM cart_discounts WHERE cart_id=?", (cart_id,))
+    c = cur2.fetchone(); conn2.close()
+    discount = c[1] if c else 0.0
+    final_total = max(0.0, total - discount)
+    return {"cart_id": cart_id, "count": count, "total": total, "discount": discount, "final_total": final_total, "coupon": c[0] if c else None, "items": items}
 
 
 @app.post("/cart/items")
@@ -465,7 +536,13 @@ def create_order(cart_id: str = Query(...)):
             raise HTTPException(400, f"insufficient stock for product {pid}")
         total += price * q
 
-    cur.execute("INSERT INTO orders(cart_id, total) VALUES (?,?)", (cart_id, total))
+    # apply discount if set
+    cur2 = conn.cursor()
+    cur2.execute("SELECT discount FROM cart_discounts WHERE cart_id=?", (cart_id,))
+    c = cur2.fetchone()
+    discount = c[0] if c else 0.0
+    grand = max(0.0, total - discount)
+    cur.execute("INSERT INTO orders(cart_id, total, status) VALUES (?,?,?)", (cart_id, grand, 'pending'))
     order_id = cur.lastrowid
     for pid, q in items:
         cur.execute("SELECT price FROM products WHERE id=?", (pid,))
@@ -477,9 +554,10 @@ def create_order(cart_id: str = Query(...)):
         cur.execute("UPDATE products SET stock = stock - ? WHERE id=?", (q, pid))
 
     cur.execute("DELETE FROM carts WHERE cart_id=?", (cart_id,))
+    cur.execute("DELETE FROM cart_discounts WHERE cart_id=?", (cart_id,))
     conn.commit()
     conn.close()
-    return {"ok": True, "order_id": order_id, "total": total}
+    return {"ok": True, "order_id": order_id, "total": grand}
 
 
 # Admin product CRUD with image upload
@@ -499,6 +577,7 @@ def admin_create_product(
     price: float = Form(...),
     stock: int = Form(0),
     image: Optional[UploadFile] = File(None),
+    categories: Optional[str] = Form(None),
     _: dict = Depends(require_admin),
 ):
     image_url = ""
@@ -523,6 +602,14 @@ def admin_create_product(
     )
     conn.commit()
     pid = cur.lastrowid
+    if categories:
+        try:
+            ids = [int(x) for x in categories.split(',') if x.strip()]
+            for cid in ids:
+                cur.execute("INSERT OR IGNORE INTO product_categories(product_id, category_id) VALUES (?,?)", (pid, cid))
+            conn.commit()
+        except Exception:
+            pass
     conn.close()
     return {"id": pid}
 @app.put("/admin/products/{pid}")
@@ -535,6 +622,7 @@ def admin_update_product(
     price: Optional[float] = Form(None),
     stock: Optional[int] = Form(None),
     image: Optional[UploadFile] = File(None),
+    categories: Optional[str] = Form(None),
     _: dict = Depends(require_admin),
 ):
     conn = sqlite3.connect(DB_PATH)
@@ -569,10 +657,19 @@ def admin_update_product(
             base = os.getenv("IMAGE_BASE", "")
             url = f"{base.rstrip('/')}/images/{fname}" if base else f"/images/{fname}"
             sets.append("image_url=?"); vals.append(url)
-    if not sets:
+    if not sets and categories is None:
         conn.close(); return {"ok": True}
     vals.append(pid)
     cur.execute(f"UPDATE products SET {', '.join(sets)} WHERE id=?", tuple(vals))
+    if categories is not None:
+        cur.execute("DELETE FROM product_categories WHERE product_id=?", (pid,))
+        if categories:
+            try:
+                ids = [int(x) for x in categories.split(',') if x.strip()]
+                for cid in ids:
+                    cur.execute("INSERT OR IGNORE INTO product_categories(product_id, category_id) VALUES (?,?)", (pid, cid))
+            except Exception:
+                pass
     conn.commit()
     conn.close()
     return {"ok": True}
@@ -744,6 +841,54 @@ def admin_delete_user(uid: int, _: dict = Depends(require_admin)):
     return {"ok": True}
 
 
+# ===== New: Categories, Media, Coupons, Orders, Dashboard =====
+def _slugify(name: str) -> str:
+    s = ''.join(c.lower() if c.isalnum() else '-' for c in name)
+    while '--' in s:
+        s = s.replace('--', '-')
+    return s.strip('-')
+
+
+@app.get("/admin/categories")
+def admin_list_categories(_: dict = Depends(require_admin)):
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT id, name, slug, sort FROM categories ORDER BY sort ASC, id DESC")
+    rows = cur.fetchall(); conn.close()
+    return [{"id":r[0],"name":r[1],"slug":r[2],"sort":r[3]} for r in rows]
+
+
+@app.post("/admin/categories")
+def admin_create_category(name: str = Form(...), sort: int = Form(0), _: dict = Depends(require_admin)):
+    slug = _slugify(name)
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("INSERT INTO categories(name, slug, sort) VALUES (?,?,?)", (name, slug, sort))
+    conn.commit(); cid = cur.lastrowid; conn.close(); return {"id": cid}
+
+
+@app.put("/admin/categories/{cid}")
+def admin_update_category(cid: int, name: Optional[str] = Form(None), sort: Optional[int] = Form(None), _: dict = Depends(require_admin)):
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    sets=[]; vals=[]
+    if name is not None:
+        sets.append("name=?"); vals.append(name)
+        sets.append("slug=?"); vals.append(_slugify(name))
+    if sort is not None:
+        sets.append("sort=?"); vals.append(sort)
+    if not sets:
+        conn.close(); return {"ok": True}
+    vals.append(cid)
+    cur.execute(f"UPDATE categories SET {', '.join(sets)} WHERE id=?", tuple(vals))
+    conn.commit(); conn.close(); return {"ok": True}
+
+
+@app.delete("/admin/categories/{cid}")
+def admin_delete_category(cid: int, _: dict = Depends(require_admin)):
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("DELETE FROM product_categories WHERE category_id=?", (cid,))
+    cur.execute("DELETE FROM categories WHERE id=?", (cid,))
+    conn.commit(); conn.close(); return {"ok": True}
+
+
 @app.patch("/admin/users/{uid}")
 def admin_toggle_user(uid: int, active: Optional[int] = Form(None), _: dict = Depends(require_admin)):
     conn = sqlite3.connect(DB_PATH)
@@ -776,3 +921,174 @@ def admin_logs(_: dict = Depends(require_admin), lines: int = Query(200, ge=1, l
         level_upper = level.upper()
         tail = [ln for ln in tail if f" {level_upper} " in ln]
     return {"lines": tail}
+
+
+@app.get("/admin/media")
+def admin_list_media(_: dict = Depends(require_admin)):
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT id, filename, url, size, created_at FROM media ORDER BY id DESC")
+    rows = cur.fetchall(); conn.close()
+    return [{"id":r[0],"filename":r[1],"url":r[2],"size":r[3],"created_at":r[4]} for r in rows]
+
+
+@app.post("/admin/media")
+def admin_upload_media(file: UploadFile = File(...), _: dict = Depends(require_admin)):
+    ext = os.path.splitext(file.filename)[1]
+    fname = f"{uuid.uuid4().hex}{ext}"
+    data = file.file.read()
+    blob_url = _upload_to_blob_if_configured(fname, data)
+    if blob_url:
+        url = blob_url
+    else:
+        dest = os.path.join(UPLOAD_DIR, fname)
+        with open(dest, 'wb') as f:
+            f.write(data)
+        base = os.getenv("IMAGE_BASE", "")
+        url = f"{base.rstrip('/')}/images/{fname}" if base else f"/images/{fname}"
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("INSERT INTO media(filename, url, size) VALUES (?,?,?)", (fname, url, len(data)))
+    conn.commit(); mid = cur.lastrowid; conn.close()
+    return {"id": mid, "url": url}
+
+
+@app.delete("/admin/media/{mid}")
+def admin_delete_media(mid: int, _: dict = Depends(require_admin)):
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT filename FROM media WHERE id=?", (mid,))
+    row = cur.fetchone()
+    if not row:
+        conn.close(); raise HTTPException(404, 'not found')
+    cur.execute("DELETE FROM media WHERE id=?", (mid,))
+    conn.commit(); conn.close()
+    try:
+        p = os.path.join(UPLOAD_DIR, row[0])
+        if os.path.isfile(p): os.remove(p)
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+@app.get("/admin/coupons")
+def admin_list_coupons(_: dict = Depends(require_admin)):
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT id, code, type, value, active, valid_from, valid_to, min_amount FROM coupons ORDER BY id DESC")
+    rows = cur.fetchall(); conn.close()
+    return [{"id":r[0],"code":r[1],"type":r[2],"value":r[3],"active":bool(r[4]),"valid_from":r[5],"valid_to":r[6],"min_amount":r[7]} for r in rows]
+
+
+@app.post("/admin/coupons")
+def admin_create_coupon(code: str = Form(...), type: str = Form(...), value: float = Form(...), active: int = Form(1), valid_from: Optional[str] = Form(None), valid_to: Optional[str] = Form(None), min_amount: float = Form(0.0), _: dict = Depends(require_admin)):
+    if type not in ("percent","fixed"):
+        raise HTTPException(400, 'invalid type')
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("INSERT INTO coupons(code, type, value, active, valid_from, valid_to, min_amount) VALUES (?,?,?,?,?,?,?)", (code.strip(), type, value, 1 if int(active) else 0, valid_from, valid_to, min_amount))
+    conn.commit(); cid = cur.lastrowid; conn.close(); return {"id": cid}
+
+
+@app.put("/admin/coupons/{cid}")
+def admin_update_coupon(cid: int, code: Optional[str] = Form(None), type: Optional[str] = Form(None), value: Optional[float] = Form(None), active: Optional[int] = Form(None), valid_from: Optional[str] = Form(None), valid_to: Optional[str] = Form(None), min_amount: Optional[float] = Form(None), _: dict = Depends(require_admin)):
+    sets=[]; vals=[]
+    if code is not None:
+        sets.append("code=?"); vals.append(code.strip())
+    if type is not None:
+        if type not in ("percent","fixed"):
+            raise HTTPException(400, 'invalid type')
+        sets.append("type=?"); vals.append(type)
+    if value is not None:
+        sets.append("value=?"); vals.append(value)
+    if active is not None:
+        sets.append("active=?"); vals.append(1 if int(active) else 0)
+    if valid_from is not None:
+        sets.append("valid_from=?"); vals.append(valid_from)
+    if valid_to is not None:
+        sets.append("valid_to=?"); vals.append(valid_to)
+    if min_amount is not None:
+        sets.append("min_amount=?"); vals.append(min_amount)
+    if not sets: return {"ok": True}
+    vals.append(cid)
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute(f"UPDATE coupons SET {', '.join(sets)} WHERE id=?", tuple(vals))
+    conn.commit(); conn.close(); return {"ok": True}
+
+
+@app.delete("/admin/coupons/{cid}")
+def admin_delete_coupon(cid: int, _: dict = Depends(require_admin)):
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("DELETE FROM coupons WHERE id=?", (cid,))
+    conn.commit(); conn.close(); return {"ok": True}
+
+
+def _evaluate_coupon(cur, cart_id: str, code: str, subtotal: float) -> float:
+    now_iso = datetime.utcnow().isoformat()
+    cur.execute("SELECT type, value, active, valid_from, valid_to, min_amount FROM coupons WHERE code=?", (code.strip(),))
+    r = cur.fetchone()
+    if not r:
+        raise HTTPException(400, 'invalid coupon')
+    ctype, val, active, vfrom, vto, min_amount = r
+    if not active:
+        raise HTTPException(400, 'coupon inactive')
+    if min_amount and subtotal < float(min_amount):
+        raise HTTPException(400, 'minimum not met')
+    if vfrom and now_iso < vfrom:
+        raise HTTPException(400, 'not yet valid')
+    if vto and now_iso > vto:
+        raise HTTPException(400, 'expired')
+    if ctype == 'percent':
+        return round(subtotal * float(val) / 100.0, 2)
+    return min(subtotal, float(val))
+
+
+@app.post("/cart/apply-coupon")
+def apply_coupon(cart_id: str = Form(...), code: str = Form(...)):
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT c.qty, p.price FROM carts c JOIN products p ON p.id=c.product_id WHERE c.cart_id=?", (cart_id,))
+    rows = cur.fetchall()
+    subtotal = sum(q*pr for q,pr in rows)
+    if subtotal <= 0:
+        conn.close(); raise HTTPException(400, 'cart empty')
+    discount = _evaluate_coupon(cur, cart_id, code, subtotal)
+    cur.execute("INSERT INTO cart_discounts(cart_id, code, discount) VALUES (?,?,?) ON CONFLICT(cart_id) DO UPDATE SET code=excluded.code, discount=excluded.discount", (cart_id, code.strip(), discount))
+    conn.commit(); conn.close()
+    return {"ok": True, "discount": discount}
+
+
+@app.get("/admin/orders")
+def admin_list_orders(_: dict = Depends(require_admin), status: Optional[str] = Query(None), min_total: Optional[float] = Query(None), max_total: Optional[float] = Query(None)):
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    base = "SELECT id, cart_id, total, status, created_at FROM orders"
+    where = []
+    params = []
+    if status:
+        where.append("status=?"); params.append(status)
+    if min_total is not None:
+        where.append("total>=?"); params.append(min_total)
+    if max_total is not None:
+        where.append("total<=?"); params.append(max_total)
+    sql = base + (" WHERE "+" AND ".join(where) if where else "") + " ORDER BY id DESC"
+    cur.execute(sql, tuple(params))
+    rows = cur.fetchall(); conn.close()
+    return [{"id":r[0],"cart_id":r[1],"total":r[2],"status":r[3],"created_at":r[4]} for r in rows]
+
+
+@app.put("/admin/orders/{oid}")
+def admin_update_order(oid: int, status: str = Form(...), _: dict = Depends(require_admin)):
+    if status not in ("pending","paid","shipped","completed","cancelled"):
+        raise HTTPException(400, 'invalid status')
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("UPDATE orders SET status=? WHERE id=?", (status, oid))
+    conn.commit(); conn.close(); return {"ok": True}
+
+
+@app.get("/admin/dashboard")
+def admin_dashboard(_: dict = Depends(require_admin)):
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT COUNT(*), COALESCE(SUM(total),0) FROM orders WHERE created_at >= datetime('now','-1 day')")
+    d_count, d_sum = cur.fetchone()
+    cur.execute("SELECT COUNT(*), COALESCE(SUM(total),0) FROM orders WHERE created_at >= datetime('now','-7 day')")
+    w_count, w_sum = cur.fetchone()
+    cur.execute("SELECT id, total, status, created_at FROM orders ORDER BY id DESC LIMIT 10")
+    recent_orders = [{"id":r[0],"total":r[1],"status":r[2],"created_at":r[3]} for r in cur.fetchall()]
+    cur.execute("SELECT id, username, created_at FROM users ORDER BY id DESC LIMIT 10")
+    recent_users = [{"id":r[0],"username":r[1],"created_at":r[2]} for r in cur.fetchall()]
+    conn.close()
+    return {"day": {"orders": d_count, "revenue": d_sum}, "week": {"orders": w_count, "revenue": w_sum}, "recent_orders": recent_orders, "recent_users": recent_users}
