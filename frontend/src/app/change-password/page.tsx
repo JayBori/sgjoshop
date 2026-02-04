@@ -1,7 +1,7 @@
 ﻿'use client'
 import { useEffect, useState } from 'react'
 
-import { getApiBase } from "@/src/lib/getApiBase"\n\nconst apiBase = getApiBase()
+import { getApiBase } from "../../lib/getApiBase"\n\nconst apiBase = getApiBase()
 
 export default function ChangePasswordPage(){
   const [newPassword, setNewPassword] = useState('')
@@ -35,4 +35,5 @@ export default function ChangePasswordPage(){
     </main>
   )
 }
+
 
