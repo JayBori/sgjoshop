@@ -95,7 +95,7 @@ jobs:
           set -e
           az container delete -g $RG -n $FRONT_NAME --yes >/dev/null 2>&1 || true
           API_BASE="http://$BACK_DNS.$LOC.azurecontainer.io:8000"
-          az container create -g $RG -n $FRONT_NAME -l $LOC --os-type Linux --image $FRONT_TAG --registry-login-server $ACR.azurecr.io --registry-username $ACR_USER --registry-password $ACR_PASS --dns-name-label $FRONT_DNS --ports 80 443 --cpu 1 --memory 1.5 --environment-variables NEXT_PUBLIC_API_BASE=$API_BASE FRONT_DOMAIN=$FRONT_DOMAIN ACME_EMAIL=${{ secrets.ACME_EMAIL }} XDG_DATA_HOME=/data PORT=3000 HOSTNAME=0.0.0.0 --azure-file-volume-account-name $SA --azure-file-volume-account-key $SA_KEY --azure-file-volume-share-name caddydata --azure-file-volume-mount-path /data --restart-policy Never
+          az container create -g $RG -n $FRONT_NAME -l $LOC --os-type Linux --image $FRONT_TAG --registry-login-server $ACR.azurecr.io --registry-username $ACR_USER --registry-password $ACR_PASS --dns-name-label $FRONT_DNS --ports 80 443 --cpu 1 --memory 1.5 --environment-variables NEXT_PUBLIC_API_BASE=/api BACK_API=$API_BASE FRONT_DOMAIN=$FRONT_DOMAIN ACME_EMAIL=${{ secrets.ACME_EMAIL }} XDG_DATA_HOME=/data PORT=3000 HOSTNAME=0.0.0.0 --azure-file-volume-account-name $SA --azure-file-volume-account-key $SA_KEY --azure-file-volume-share-name caddydata --azure-file-volume-mount-path /data --restart-policy Never
 
       - name: Ensure Azure DNS zone and update A/@ and CNAME/www
         run: |
@@ -108,4 +108,5 @@ jobs:
           az network dns record-set a add-record -g $RG -z $DNS_ZONE -n @ -a $FRONT_IP
           az network dns record-set cname show -g $RG -z $DNS_ZONE -n www >/dev/null 2>&1 || az network dns record-set cname create -g $RG -z $DNS_ZONE -n www --ttl 60
           az network dns record-set cname set-record -g $RG -z $DNS_ZONE -n www -c $FRONT_FQDN
+
 

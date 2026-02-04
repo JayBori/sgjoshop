@@ -1,12 +1,27 @@
-:80 {
+﻿:80 {
   redir https://{host}{uri}
 }
 
 {$FRONT_DOMAIN} {
   encode zstd gzip
-  reverse_proxy 127.0.0.1:3000
+  @api path /api* 
+  handle @api {
+    reverse_proxy {$BACK_API}
+  }
+  handle {
+    reverse_proxy 127.0.0.1:3000
+  }
 }
 
 sgjo.shop {
-  redir https://{$FRONT_DOMAIN}{uri}
+  redir https://{$FRONT_DOMAIN} {
+  encode zstd gzip
+  @api path /api* 
+  handle @api {
+    reverse_proxy {$BACK_API}
+  }
+  handle {
+    reverse_proxy 127.0.0.1:3000
+  }
 }
+
