@@ -1,7 +1,9 @@
 ﻿'use client'
 import { useState } from 'react'
 
-import { getApiBase } from "../../lib/getApiBase"\n\nconst apiBase = getApiBase()
+import { getApiBase } from "../../lib/getApiBase"
+
+const apiBase = getApiBase()
 
 export default function LoginPage(){
   const [username, setUsername] = useState('')
@@ -35,5 +37,6 @@ export default function LoginPage(){
     </main>
   )
 }
+
 
 
