@@ -581,3 +581,12 @@ async def log_requests(request: Request, call_next):
         _logger.exception(f"Unhandled error on {request.method} {request.url.path}: {e}")
         return JSONResponse({"detail": "internal server error"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+@app.get("/auth/check-username")
+def check_username(u: str = Query(...)):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM users WHERE username=?", (u.strip(),))
+    exists = cur.fetchone() is not None
+    conn.close()
+    return {"available": not exists}

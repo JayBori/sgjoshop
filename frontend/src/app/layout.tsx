@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode; })
             </nav>
             <div className="auth"><HeaderAuth /></div>
           </div>
-        </header>
+        </header>`n        <script src="/runtime-config.js" />
         {children}
         <footer className="site-footer">
           <div className="container">© {new Date().getFullYear()} SGJO Shop</div>
@@ -30,3 +30,4 @@ export default function RootLayout({ children }: { children: React.ReactNode; })
     </html>
   );
 }
+
