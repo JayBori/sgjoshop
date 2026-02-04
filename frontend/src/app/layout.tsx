@@ -11,6 +11,15 @@ export async function generateMetadata() {
     return {
       title: s.title || 'SGJO Shop',
       description: s.description || 'Next.js + FastAPI on ACI',
+      openGraph: {
+        title: s.title || 'SGJO Shop',
+        description: s.description || 'Next.js + FastAPI on ACI',
+        url: (typeof process !== 'undefined' ? process.env.FRONT_DOMAIN : undefined) || '',
+        images: s.ogImage ? [{ url: s.ogImage }] : [],
+        siteName: 'SGJO Shop',
+        locale: 'ko_KR',
+        type: 'website',
+      },
     };
   }catch{
     return { title: 'SGJO Shop', description: 'Next.js + FastAPI on ACI' };
@@ -38,9 +47,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <nav className="nav" style={{display:'flex', gap:12, alignItems:'center', flexWrap:'wrap'}}>
               <a href="#products">Products</a>
               <a href="/cart">Cart</a>
-              {categories?.slice(0,6).map((c:any)=> (
-                <a key={c.id} href={`/category/${c.slug}`}>{c.name}</a>
-              ))}
+              <details>
+                <summary>카테고리</summary>
+                <div style={{position:'absolute', background:'#fff', border:'1px solid #eee', padding:8, borderRadius:8}}>
+                  {categories?.map((c:any)=> (
+                    <div key={c.id}><a href={`/category/${c.slug}`}>{c.name}</a></div>
+                  ))}
+                </div>
+              </details>
               <a href={`${process.env.NEXT_PUBLIC_API_BASE||''}/health`} target="_blank">API</a>
             </nav>
             <div className="auth"><HeaderAuth /></div>

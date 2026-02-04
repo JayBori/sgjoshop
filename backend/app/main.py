@@ -969,9 +969,15 @@ def admin_list_media(_: dict = Depends(require_admin)):
 
 @app.post("/admin/media")
 def admin_upload_media(file: UploadFile = File(...), _: dict = Depends(require_admin)):
-    ext = os.path.splitext(file.filename)[1]
+    ext = os.path.splitext(file.filename)[1].lower()
     fname = f"{uuid.uuid4().hex}{ext}"
     data = file.file.read()
+    # size limit: 5MB
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(413, "file too large (max 5MB)")
+    # basic type guard
+    if ext not in ('.jpg','.jpeg','.png','.webp','.gif','.svg'):
+        raise HTTPException(400, "unsupported file type")
     blob_url = _upload_to_blob_if_configured(fname, data)
     if blob_url:
         url = blob_url
