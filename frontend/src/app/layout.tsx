@@ -1,5 +1,6 @@
 import "./globals.css";
 import type React from "react";
+import HeaderAuth from "../components/HeaderAuth";
 
 export const metadata = {
   title: "SGJO Shop",
@@ -14,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
-        <div className="promo">오늘 가입하고 10% 할인 쿠폰 받기</div>
+        <div className="promo">?? ??! ? ?? 10% ??</div>
         <header className="site-header">
           <div className="container header-inner">
             <div className="brand">SGJO Shop</div>
@@ -22,11 +23,12 @@ export default function RootLayout({
               <a href="#products">Products</a>
               <a href={`${process.env.NEXT_PUBLIC_API_BASE}/health`} target="_blank">API</a>
             </nav>
+            <div className="auth"><HeaderAuth /></div>
           </div>
         </header>
         {children}
         <footer className="site-footer">
-          <div className="container">© {new Date().getFullYear()} SGJO Shop</div>
+          <div className="container">� {new Date().getFullYear()} SGJO Shop</div>
         </footer>
       </body>
     </html>
