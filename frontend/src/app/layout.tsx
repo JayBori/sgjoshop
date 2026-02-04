@@ -1,5 +1,5 @@
 ﻿import "./globals.css";
-import type React from "react";
+import type React from "react";\nimport Script from "next/script";
 import HeaderAuth from "../components/HeaderAuth";
 
 export const metadata = {
@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode; })
               <a href="#products">Products</a>
               <a href={`${process.env.NEXT_PUBLIC_API_BASE}/health`} target="_blank">API</a>
             </nav>
-            <div className="auth"><HeaderAuth /></div>
+            <div className="auth"><HeaderAuth /></div>\n            <Script src="/runtime-config.js" strategy="beforeInteractive" />
           </div>
         </header>`n        <script src="/runtime-config.js" />
         {children}
@@ -30,4 +30,5 @@ export default function RootLayout({ children }: { children: React.ReactNode; })
     </html>
   );
 }
+
 
