@@ -552,3 +552,19 @@ def _upload_to_blob_if_configured(filename: str, data: bytes) -> Optional[str]:
 
 
 
+
+
+from starlette.requests import Request
+from starlette.responses import Response
+from fastapi.responses import JSONResponse
+from fastapi import status
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    try:
+        resp: Response = await call_next(request)
+        _logger.info(f"{request.method} {request.url.path} -> {resp.status_code}")
+        return resp
+    except Exception as e:
+        _logger.exception(f"Unhandled error on {request.method} {request.url.path}: {e}")
+        return JSONResponse({"detail": "internal server error"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
