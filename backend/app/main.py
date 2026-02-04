@@ -2,7 +2,7 @@
 import sqlite3
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Tuple
 
 from fastapi import FastAPI, HTTPException, Query, Depends, UploadFile, File, Form
 from fastapi.responses import FileResponse
@@ -121,6 +121,8 @@ def init_db():
           username TEXT UNIQUE,
           password_hash TEXT,
           is_admin INTEGER DEFAULT 0,
+          is_active INTEGER DEFAULT 1,
+          last_login TIMESTAMP,
           must_change_password INTEGER DEFAULT 0,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -135,11 +137,19 @@ def init_db():
     if "stock" not in cols:
         cur.execute("ALTER TABLE products ADD COLUMN stock INTEGER DEFAULT 100;")
 
+    # ensure users added columns exist
+    cur.execute("PRAGMA table_info(users);")
+    ucols = {row[1] for row in cur.fetchall()}
+    if "is_active" not in ucols:
+        cur.execute("ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1;")
+    if "last_login" not in ucols:
+        cur.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP;")
+
     # seed admin user
     cur.execute("SELECT id FROM users WHERE username=?", ("admin",))
     if not cur.fetchone():
         cur.execute(
-            "INSERT INTO users(username, password_hash, is_admin, must_change_password) VALUES (?,?,1,1)",
+            "INSERT INTO users(username, password_hash, is_admin, is_active, must_change_password) VALUES (?,?,1,1,1)",
             ("admin", hash_password(os.getenv("ADMIN_INITIAL_PASSWORD", "eogksalsrnr1!"))),
         )
 
@@ -164,9 +174,18 @@ init_db()
 
 # Auth helpers
 from fastapi.security import OAuth2PasswordBearer
-from fastapi import Header
+from fastapi import Header, Request
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+
+def _fetch_user_by_id(user_id: int) -> Optional[Tuple]:
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT id, username, is_admin, is_active, must_change_password, last_login FROM users WHERE id=?", (user_id,))
+    row = cur.fetchone()
+    conn.close()
+    return row
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -177,14 +196,19 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             raise HTTPException(401, "invalid token")
     except JWTError:
         raise HTTPException(401, "invalid token")
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("SELECT id, username, is_admin, must_change_password FROM users WHERE id=?", (user_id,))
-    row = cur.fetchone()
-    conn.close()
+    row = _fetch_user_by_id(user_id)
     if not row:
         raise HTTPException(401, "user not found")
-    return {"id": row[0], "username": row[1], "is_admin": bool(row[2]), "must_change_password": bool(row[3])}
+    if not bool(row[3]):
+        raise HTTPException(403, "user is inactive")
+    return {
+        "id": row[0],
+        "username": row[1],
+        "is_admin": bool(row[2]),
+        "is_active": bool(row[3]),
+        "must_change_password": bool(row[4]),
+        "last_login": row[5],
+    }
 
 
 def require_admin(user=Depends(get_current_user)):
@@ -213,17 +237,44 @@ def signup(username: str = Form(...), password: str = Form(...)):
     return {"ok": True}
 
 
+_failed_logins: dict = {}
+
+
 @app.post("/auth/login")
-def login(username: str = Form(...), password: str = Form(...)):
+def login(request: Request, username: str = Form(...), password: str = Form(...)):
+    # rate limit by ip+username (simple in-memory)
+    ip = request.client.host if request.client else "?"
+    key = f"{ip}:{username}"
+    rec = _failed_logins.get(key)
+    now = datetime.utcnow()
+    if rec and rec.get("until") and now < rec["until"]:
+        raise HTTPException(429, "too many attempts, try later")
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("SELECT id, password_hash, must_change_password FROM users WHERE username=?", (username,))
+    cur.execute("SELECT id, password_hash, must_change_password, is_admin, is_active FROM users WHERE username=?", (username,))
     row = cur.fetchone()
-    conn.close()
     if not row or not verify_password(password, row[1]):
+        # record failed
+        cnt = (rec or {}).get("cnt", 0) + 1
+        until = now + timedelta(minutes=5) if cnt >= 5 else None
+        _failed_logins[key] = {"cnt": cnt, "until": until}
+        conn.close()
         raise HTTPException(401, "invalid credentials")
+    if row[4] == 0:
+        conn.close()
+        raise HTTPException(403, "user inactive")
+    # success: clear failed and set last_login
+    if key in _failed_logins:
+        del _failed_logins[key]
+    cur.execute("UPDATE users SET last_login=? WHERE id=?", (datetime.utcnow().isoformat(), row[0]))
+    conn.commit(); conn.close()
     token = create_access_token({"sub": row[0]})
-    return {"access_token": token, "token_type": "bearer", "must_change_password": bool(row[2])}
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "must_change_password": bool(row[2]),
+        "is_admin": bool(row[3]),
+    }
 
 
 @app.post("/auth/change-password")
@@ -242,10 +293,29 @@ def change_password(new_password: str = Form(...), user=Depends(get_current_user
 
 
 @app.get("/admin/users")
-def list_users(_: dict = Depends(require_admin)):
+def list_users(
+    _: dict = Depends(require_admin),
+    query: Optional[str] = Query(None),
+    sort: Optional[str] = Query("-id"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=500),
+):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("SELECT id, username, is_admin, must_change_password, created_at FROM users ORDER BY id DESC")
+    base = "SELECT id, username, is_admin, is_active, must_change_password, created_at, last_login FROM users"
+    where = ""
+    params = []
+    if query:
+        where = " WHERE username LIKE ?"
+        params.append(f"%{query}%")
+    order = " ORDER BY id DESC"
+    if sort in ("id", "-id", "username", "-username", "created_at", "-created_at"):
+        desc = sort.startswith("-")
+        col = sort[1:] if desc else sort
+        order = f" ORDER BY {col} {'DESC' if desc else 'ASC'}"
+    limit = " LIMIT ? OFFSET ?"
+    params.extend([page_size, (page-1)*page_size])
+    cur.execute(base + where + order + limit, tuple(params))
     rows = cur.fetchall()
     conn.close()
     return [
@@ -253,8 +323,10 @@ def list_users(_: dict = Depends(require_admin)):
             "id": r[0],
             "username": r[1],
             "is_admin": bool(r[2]),
-            "must_change_password": bool(r[3]),
-            "created_at": r[4],
+            "is_active": bool(r[3]),
+            "must_change_password": bool(r[4]),
+            "created_at": r[5],
+            "last_login": r[6],
         }
         for r in rows
     ]
@@ -670,3 +742,37 @@ def admin_delete_user(uid: int, _: dict = Depends(require_admin)):
     cur.execute("DELETE FROM users WHERE id=?", (uid,))
     conn.commit(); conn.close()
     return {"ok": True}
+
+
+@app.patch("/admin/users/{uid}")
+def admin_toggle_user(uid: int, active: Optional[int] = Form(None), _: dict = Depends(require_admin)):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT username, is_active FROM users WHERE id=?", (uid,))
+    row = cur.fetchone()
+    if not row:
+        conn.close();
+        raise HTTPException(404, "user not found")
+    if row[0] == 'admin' and active == 0:
+        conn.close();
+        raise HTTPException(400, "cannot deactivate admin user")
+    if active is None:
+        # toggle
+        active = 0 if row[1] else 1
+    cur.execute("UPDATE users SET is_active=? WHERE id=?", (1 if int(active) else 0, uid))
+    conn.commit(); conn.close()
+    return {"ok": True, "is_active": bool(active)}
+
+
+@app.get("/admin/logs")
+def admin_logs(_: dict = Depends(require_admin), lines: int = Query(200, ge=1, le=1000), level: Optional[str] = Query(None)):
+    try:
+        with open(LOG_FILE, 'r', encoding='utf-8', errors='ignore') as f:
+            data = f.readlines()
+    except Exception:
+        data = []
+    tail = data[-lines:]
+    if level:
+        level_upper = level.upper()
+        tail = [ln for ln in tail if f" {level_upper} " in ln]
+    return {"lines": tail}
