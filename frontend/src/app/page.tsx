@@ -1,7 +1,11 @@
 ﻿export const dynamic = "force-dynamic";
 
+import { getApiBase } from "../lib/getApiBase";
+import ProductGrid from "../components/ProductGrid";
+import BestSection from "../components/BestSection";
+
 async function getProducts() {
-  import { getApiBase } from "../lib/getApiBase";\n  const apiBase = getApiBase();
+  const apiBase = getApiBase();
   const res = await fetch(`${apiBase}/products`, { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to fetch products");
   return res.json();
@@ -18,9 +22,6 @@ function Hero() {
   );
 }
 
-import ProductGrid from "../components/ProductGrid";
-import BestSection from "../components/BestSection";
-
 export default async function Home() {
   const products = await getProducts();
   return (
@@ -31,5 +32,3 @@ export default async function Home() {
     </main>
   );
 }
-
-
