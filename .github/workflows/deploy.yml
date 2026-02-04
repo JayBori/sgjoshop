@@ -11,7 +11,6 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     env:
       RG: sgjo-test-shop-rg
       LOC: koreacentral
@@ -26,7 +25,6 @@ jobs:
       FRONT_DOMAIN: www.sgjo.shop
       DNS_ZONE: sgjo.shop
 
-      # Storage Account (ê³ ì •/ìž¬ì‚¬ìš©). ì „ì—­ ìœ ë‹ˆí¬ì—¬ì•¼ í•¨!
       SA: sgjoshopstorekrc01
 
     steps:
@@ -64,7 +62,7 @@ jobs:
           echo "ACR_USER=$ACR_USER" >> $GITHUB_ENV
           echo "ACR_PASS=$ACR_PASS" >> $GITHUB_ENV
 
-      - name: Ensure Storage Account + File Shares (idempotent)
+      - name: Ensure Storage Account + File Shares + Blob Container
         run: |
           set -e
           az storage account show -g $RG -n $SA >/dev/null 2>&1 || \
@@ -73,9 +71,10 @@ jobs:
           SA_KEY=$(az storage account keys list -g $RG -n $SA --query "[0].value" -o tsv)
           echo "SA_KEY=$SA_KEY" >> $GITHUB_ENV
 
-          # Front(Caddy) ì¸ì¦ì„œ ì €ìž¥ìš© + Backend(SQLite db íŒŒì¼) ì €ìž¥ìš©
-          az storage share create --account-name $SA --account-key $SA_KEY --name caddydata --quota 1
-          az storage share create --account-name $SA --account-key $SA_KEY --name appdata --quota 10\n\n          # Ensure blob container for product images\n          az storage container create --account-name $SA --account-key $SA_KEY --name product-images --public-access blob | Out-Null
+          az storage share create --account-name $SA --account-key $SA_KEY --name caddydata --quota 1 >/dev/null
+          az storage share create --account-name $SA --account-key $SA_KEY --name appdata --quota 10 >/dev/null
+
+          az storage container create --account-name $SA --account-key $SA_KEY --name product-images --public-access blob >/dev/null
 
       - name: Build & Push backend
         run: |
@@ -115,11 +114,10 @@ jobs:
             --azure-file-volume-mount-path /data \
             --environment-variables \
               DB_PATH=/data/shop.db \
-              DB_TYPE=sqlite \ \
+              DB_TYPE=sqlite \
               IMAGE_BASE=http://$BACK_DNS.$LOC.azurecontainer.io:8000 \
               AZURE_BLOB_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=$SA;AccountKey=$SA_KEY;EndpointSuffix=core.windows.net \
               AZURE_BLOB_CONTAINER=product-images \
-
             --restart-policy Never
 
       - name: Deploy frontend (Caddy HTTPS) to ACI
@@ -161,21 +159,18 @@ jobs:
           FRONT_IP=$(az container show -g $RG -n $FRONT_NAME --query ipAddress.ip -o tsv)
           FRONT_FQDN="$FRONT_DNS.$LOC.azurecontainer.io"
 
-          # Apex A record -> container IP (idempotent)
           az network dns record-set a show -g $RG -z $DNS_ZONE -n @ >/dev/null 2>&1 || az network dns record-set a create -g $RG -z $DNS_ZONE -n @ --ttl 60
           az network dns record-set a update -g $RG -z $DNS_ZONE -n @ --set aRecords=[]
           az network dns record-set a add-record -g $RG -z $DNS_ZONE -n @ -a $FRONT_IP
 
-          # www CNAME -> container FQDN (idempotent)
           az network dns record-set cname show -g $RG -z $DNS_ZONE -n www >/dev/null 2>&1 || az network dns record-set cname create -g $RG -z $DNS_ZONE -n www --ttl 60
           az network dns record-set cname set-record -g $RG -z $DNS_ZONE -n www -c $FRONT_FQDN
 
       - name: Print URLs
         run: |
           echo "BACKEND: http://$BACK_DNS.$LOC.azurecontainer.io:8000"
-          echo "FRONT:   http://$FRONT_DNS.$LOC.azurecontainer.io (DNS ì „)"
-          echo "FRONT:   https://$FRONT_DOMAIN (DNS ì—°ê²° í›„)"
+          echo "FRONT:   http://$FRONT_DNS.$LOC.azurecontainer.io"
+          echo "FRONT:   https://$FRONT_DOMAIN"
           echo ""
           echo "Next step:"
           echo "  POST http://$BACK_DNS.$LOC.azurecontainer.io:8000/init  (seed data)"
-
