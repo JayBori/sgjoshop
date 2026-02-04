@@ -89,7 +89,9 @@ jobs:
           set -e
           az container delete -g $RG -n $BACK_NAME --yes >/dev/null 2>&1 || true
           AZURE_BLOB_CS=DefaultEndpointsProtocol=https;AccountName=$SA;AccountKey=$SA_KEY;EndpointSuffix=core.windows.net
-          az container create -g $RG -n $BACK_NAME -l $LOC --os-type Linux --image $BACK_TAG --registry-login-server $ACR.azurecr.io --registry-username $ACR_USER --registry-password $ACR_PASS --dns-name-label $BACK_DNS --ports 8000 --cpu 1 --memory 1.5 --azure-file-volume-account-name $SA --azure-file-volume-account-key $SA_KEY --azure-file-volume-share-name appdata --azure-file-volume-mount-path /data --environment-variables DB_PATH=/data/shop.db DB_TYPE=sqlite IMAGE_BASE=http://$BACK_DNS.$LOC.azurecontainer.io:8000 AZURE_BLOB_CONNECTION_STRING=$AZURE_BLOB_CS AZURE_BLOB_CONTAINER=product-images --restart-policy Never      - name: Deploy frontend (Caddy HTTPS) to ACI
+          az container create -g $RG -n $BACK_NAME -l $LOC --os-type Linux --image $BACK_TAG --registry-login-server $ACR.azurecr.io --registry-username $ACR_USER --registry-password $ACR_PASS --dns-name-label $BACK_DNS --ports 8000 --cpu 1 --memory 1.5 --azure-file-volume-account-name $SA --azure-file-volume-account-key $SA_KEY --azure-file-volume-share-name appdata --azure-file-volume-mount-path /data --environment-variables DB_PATH=/data/shop.db DB_TYPE=sqlite IMAGE_BASE=http://$BACK_DNS.$LOC.azurecontainer.io:8000 AZURE_BLOB_CONNECTION_STRING=$AZURE_BLOB_CS AZURE_BLOB_CONTAINER=product-images --restart-policy Never
+
+      - name: Deploy frontend (Caddy HTTPS) to ACI
         run: |
           set -e
           az container delete -g $RG -n $FRONT_NAME --yes >/dev/null 2>&1 || true
@@ -107,16 +109,3 @@ jobs:
           az network dns record-set a add-record -g $RG -z $DNS_ZONE -n @ -a $FRONT_IP
           az network dns record-set cname show -g $RG -z $DNS_ZONE -n www >/dev/null 2>&1 || az network dns record-set cname create -g $RG -z $DNS_ZONE -n www --ttl 60
           az network dns record-set cname set-record -g $RG -z $DNS_ZONE -n www -c $FRONT_FQDN
-
-      - name: Wait backend ready and health-check
-        run: |
-          set -e
-          for i in {1..60}; do state=$(az container show -g $RG -n $BACK_NAME --query instanceView.state -o tsv || true); echo "backend state: $state"; [ "$state" = "Running" ] && break; sleep 5; done
-          BACK_URL="http://$BACK_DNS.$LOC.azurecontainer.io:8000"; curl -fsS "$BACK_URL/health"
-
-      - name: Wait frontend ready and smoke test
-        run: |
-          set -e
-          for i in {1..60}; do state=$(az container show -g $RG -n $FRONT_NAME --query instanceView.state -o tsv || true); echo "frontend state: $state"; [ "$state" = "Running" ] && break; sleep 5; done
-          FRONT_URL="http://$FRONT_DNS.$LOC.azurecontainer.io"; curl -fsS "$FRONT_URL" | head -c 2000
-
