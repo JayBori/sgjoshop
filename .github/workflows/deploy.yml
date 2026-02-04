@@ -171,3 +171,4 @@ jobs:
           echo "  POST http://$BACK_DNS.$LOC.azurecontainer.io:8000/init  (seed data)"
 
 
+
