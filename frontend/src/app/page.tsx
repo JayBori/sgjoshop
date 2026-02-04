@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+﻿export const dynamic = "force-dynamic";
 
 import { getApiBase } from "../lib/getApiBase";
 import ProductGrid from "../components/ProductGrid";
@@ -16,6 +16,13 @@ async function getPublicSettings(){
   const res = await fetch(`${apiBase}/settings/public`, { cache: "no-store" });
   if(!res.ok) return {} as any;
   return res.json();
+}
+
+export async function generateMetadata(){
+  try{
+    const s = await getPublicSettings();
+    return { title: s.title || 'SGJO Shop', description: s.description || 'Next.js + FastAPI on ACI' };
+  }catch{ return { title: 'SGJO Shop', description: 'Next.js + FastAPI on ACI' }; }
 }
 
 function Hero({settings}:{settings:any}){
@@ -41,4 +48,3 @@ export default async function Home() {
     </main>
   );
 }
-

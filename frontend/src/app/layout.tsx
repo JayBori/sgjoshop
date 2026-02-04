@@ -1,21 +1,33 @@
-import "./globals.css";
+﻿import "./globals.css";
 import type React from "react";
 import Script from "next/script";
 import HeaderAuth from "../components/HeaderAuth";
 import { getApiBase } from "../lib/getApiBase";
 
-export const metadata = {
-  title: "SGJO Shop",
-  description: "Next.js + FastAPI on ACI",
-};
+export async function generateMetadata() {
+  try{
+    const res = await fetch(`${getApiBase()}/settings/public`, { cache: 'no-store' });
+    const s = res.ok ? await res.json() : {} as any;
+    return {
+      title: s.title || 'SGJO Shop',
+      description: s.description || 'Next.js + FastAPI on ACI',
+    };
+  }catch{
+    return { title: 'SGJO Shop', description: 'Next.js + FastAPI on ACI' };
+  }
+}
 
 async function getPublicSettings(){
   const res = await fetch(`${getApiBase()}/settings/public`, { cache: 'no-store' });
   if(!res.ok) return {} as any; return res.json();
 }
+async function getCategories(){
+  const res = await fetch(`${getApiBase()}/categories`, { cache: 'no-store' });
+  if(!res.ok) return [] as any[]; return res.json();
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const settings = await getPublicSettings();
+  const [settings, categories] = await Promise.all([getPublicSettings(), getCategories()]);
   return (
     <html lang="ko">
       <body>
@@ -23,9 +35,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="site-header">
           <div className="container header-inner">
             <div className="brand"><a href="/">SGJO Shop</a></div>
-            <nav className="nav">
+            <nav className="nav" style={{display:'flex', gap:12, alignItems:'center', flexWrap:'wrap'}}>
               <a href="#products">Products</a>
               <a href="/cart">Cart</a>
+              {categories?.slice(0,6).map((c:any)=> (
+                <a key={c.id} href={`/category/${c.slug}`}>{c.name}</a>
+              ))}
               <a href={`${process.env.NEXT_PUBLIC_API_BASE||''}/health`} target="_blank">API</a>
             </nav>
             <div className="auth"><HeaderAuth /></div>
@@ -34,7 +49,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </header>
         {children}
         <footer className="site-footer">
-          <div className="container">� {new Date().getFullYear()} {settings.footerText||'SGJO Shop'}</div>
+          <div className="container">© {new Date().getFullYear()} {settings.footerText||'SGJO Shop'}</div>
         </footer>
       </body>
     </html>
