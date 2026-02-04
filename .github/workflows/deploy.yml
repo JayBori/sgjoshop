@@ -112,12 +112,7 @@ jobs:
             --azure-file-volume-account-key $SA_KEY \
             --azure-file-volume-share-name appdata \
             --azure-file-volume-mount-path /data \
-            --environment-variables \
-              DB_PATH=/data/shop.db \
-              DB_TYPE=sqlite \
-              IMAGE_BASE=http://$BACK_DNS.$LOC.azurecontainer.io:8000 \
-              AZURE_BLOB_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=$SA;AccountKey=$SA_KEY;EndpointSuffix=core.windows.net \
-              AZURE_BLOB_CONTAINER=product-images \
+            --environment-variables DB_PATH=/data/shop.db DB_TYPE=sqlite IMAGE_BASE=http://$BACK_DNS.$LOC.azurecontainer.io:8000 AZURE_BLOB_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=$SA;AccountKey=$SA_KEY;EndpointSuffix=core.windows.net" AZURE_BLOB_CONTAINER=product-images \\
             --restart-policy Never
 
       - name: Deploy frontend (Caddy HTTPS) to ACI
@@ -174,3 +169,5 @@ jobs:
           echo ""
           echo "Next step:"
           echo "  POST http://$BACK_DNS.$LOC.azurecontainer.io:8000/init  (seed data)"
+
+
