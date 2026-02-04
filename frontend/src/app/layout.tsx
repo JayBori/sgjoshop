@@ -1,5 +1,6 @@
 ﻿import "./globals.css";
-import type React from "react";\nimport Script from "next/script";
+import type React from "react";
+import Script from "next/script";
 import HeaderAuth from "../components/HeaderAuth";
 
 export const metadata = {
@@ -7,7 +8,7 @@ export const metadata = {
   description: "Next.js + FastAPI + PostgreSQL on ACI",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode; }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
       <body>
@@ -19,9 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode; })
               <a href="#products">Products</a>
               <a href={`${process.env.NEXT_PUBLIC_API_BASE}/health`} target="_blank">API</a>
             </nav>
-            <div className="auth"><HeaderAuth /></div>\n            <Script src="/runtime-config.js" strategy="beforeInteractive" />
+            <div className="auth"><HeaderAuth /></div>
+            <Script src="/runtime-config.js" strategy="beforeInteractive" />
           </div>
-        </header>`n        <script src="/runtime-config.js" />
+        </header>
         {children}
         <footer className="site-footer">
           <div className="container">© {new Date().getFullYear()} SGJO Shop</div>
@@ -30,5 +32,3 @@ export default function RootLayout({ children }: { children: React.ReactNode; })
     </html>
   );
 }
-
-
