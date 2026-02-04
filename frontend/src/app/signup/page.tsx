@@ -12,20 +12,19 @@ export default function SignupPage(){
     setMsg('')
     const body = new URLSearchParams({ username, password })
     const res = await fetch(`${apiBase}/auth/signup`, { method: 'POST', body })
-    if(!res.ok){ setMsg('?? ??'); return }
-    setMsg('?? ??! ??? ????.')
+    if(!res.ok){ setMsg('가입 실패'); return }
+    setMsg('가입 완료! 로그인 해주세요.')
   }
   return (
     <main className="container" style={{maxWidth:480}}>
-      <h1>????</h1>
+      <h1>회원가입</h1>
       <form onSubmit={onSubmit}>
-        <input placeholder="???" value={username} onChange={e=>setUsername(e.target.value)} />
-        <input type="password" placeholder="????" value={password} onChange={e=>setPassword(e.target.value)} />
-        <button type="submit">??</button>
+        <input placeholder="아이디" value={username} onChange={e=>setUsername(e.target.value)} />
+        <input type="password" placeholder="비밀번호" value={password} onChange={e=>setPassword(e.target.value)} />
+        <button type="submit">가입</button>
       </form>
       {msg && <p>{msg}</p>}
-      <p><a href="/login">?????</a></p>
+      <p><a href="/login">로그인으로</a></p>
     </main>
   )
 }
-

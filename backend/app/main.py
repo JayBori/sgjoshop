@@ -27,7 +27,7 @@ UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/data/uploads")
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "120"))
 
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256","bcrypt"], deprecated="auto")
 
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -543,6 +543,7 @@ def _upload_to_blob_if_configured(filename: str, data: bytes) -> Optional[str]:
         return url.url
     except Exception as e:
         return None
+
 
 
 
