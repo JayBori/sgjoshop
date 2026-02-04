@@ -8,6 +8,18 @@ from fastapi import FastAPI, HTTPException, Query, Depends, UploadFile, File, Fo
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
+import logging
+from logging.handlers import RotatingFileHandler
+LOG_DIR = os.getenv("LOG_DIR", "/data/logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, "app.log")
+_logger = logging.getLogger("app")
+_logger.setLevel(logging.INFO)
+if not _logger.handlers:
+    fh = RotatingFileHandler(LOG_FILE, maxBytes=1048576, backupCount=3)
+    fmt = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    fh.setFormatter(fmt)
+    _logger.addHandler(fh)
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from azure.storage.blob import BlobServiceClient
@@ -568,3 +580,4 @@ async def log_requests(request: Request, call_next):
     except Exception as e:
         _logger.exception(f"Unhandled error on {request.method} {request.url.path}: {e}")
         return JSONResponse({"detail": "internal server error"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
