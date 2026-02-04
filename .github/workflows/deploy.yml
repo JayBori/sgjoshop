@@ -15,16 +15,12 @@ jobs:
       RG: sgjo-test-shop-rg
       LOC: koreacentral
       ACR: sgjoshop
-
       FRONT_NAME: sgjo-aci-front
       BACK_NAME: sgjo-aci-back
-
       FRONT_DNS: sgjo-front
       BACK_DNS: sgjo-back
-
       FRONT_DOMAIN: www.sgjo.shop
       DNS_ZONE: sgjo.shop
-
       SA: sgjoshopstorekrc01
 
     steps:
@@ -65,15 +61,11 @@ jobs:
       - name: Ensure Storage Account + File Shares + Blob Container
         run: |
           set -e
-          az storage account show -g $RG -n $SA >/dev/null 2>&1 || \
-          az storage account create -g $RG -n $SA -l $LOC --sku Standard_LRS --kind StorageV2
-
+          az storage account show -g $RG -n $SA >/dev/null 2>&1 || az storage account create -g $RG -n $SA -l $LOC --sku Standard_LRS --kind StorageV2
           SA_KEY=$(az storage account keys list -g $RG -n $SA --query "[0].value" -o tsv)
           echo "SA_KEY=$SA_KEY" >> $GITHUB_ENV
-
           az storage share create --account-name $SA --account-key $SA_KEY --name caddydata --quota 1 >/dev/null
           az storage share create --account-name $SA --account-key $SA_KEY --name appdata --quota 10 >/dev/null
-
           az storage container create --account-name $SA --account-key $SA_KEY --name product-images --public-access blob >/dev/null
 
       - name: Build & Push backend
@@ -96,104 +88,35 @@ jobs:
         run: |
           set -e
           az container delete -g $RG -n $BACK_NAME --yes >/dev/null 2>&1 || true
-
-          az container create \
-            -g $RG -n $BACK_NAME -l $LOC \
-            --os-type Linux \
-            --image $BACK_TAG \
-            --registry-login-server $ACR.azurecr.io \
-            --registry-username $ACR_USER \
-            --registry-password $ACR_PASS \
-            --dns-name-label $BACK_DNS \
-            --ports 8000 \
-            --cpu 1 \
-            --memory 1.5 \
-            --azure-file-volume-account-name $SA \
-            --azure-file-volume-account-key $SA_KEY \
-            --azure-file-volume-share-name appdata \
-            --azure-file-volume-mount-path /data \
-            --environment-variables DB_PATH=/data/shop.db DB_TYPE=sqlite IMAGE_BASE=http://$BACK_DNS.$LOC.azurecontainer.io:8000 AZURE_BLOB_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=$SA;AccountKey=$SA_KEY;EndpointSuffix=core.windows.net" AZURE_BLOB_CONTAINER=product-images \\
-            --restart-policy Never
+          az container create -g $RG -n $BACK_NAME -l $LOC --os-type Linux --image $BACK_TAG --registry-login-server $ACR.azurecr.io --registry-username $ACR_USER --registry-password $ACR_PASS --dns-name-label $BACK_DNS --ports 8000 --cpu 1 --memory 1.5 --azure-file-volume-account-name $SA --azure-file-volume-account-key $SA_KEY --azure-file-volume-share-name appdata --azure-file-volume-mount-path /data --environment-variables DB_PATH=/data/shop.db DB_TYPE=sqlite IMAGE_BASE=http://$BACK_DNS.$LOC.azurecontainer.io:8000 AZURE_BLOB_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=$SA;AccountKey=$SA_KEY;EndpointSuffix=core.windows.net" AZURE_BLOB_CONTAINER=product-images --restart-policy Never
 
       - name: Deploy frontend (Caddy HTTPS) to ACI
         run: |
           set -e
           az container delete -g $RG -n $FRONT_NAME --yes >/dev/null 2>&1 || true
-
           API_BASE="http://$BACK_DNS.$LOC.azurecontainer.io:8000"
-
-          az container create \
-            -g $RG -n $FRONT_NAME -l $LOC \
-            --os-type Linux \
-            --image $FRONT_TAG \
-            --registry-login-server $ACR.azurecr.io \
-            --registry-username $ACR_USER \
-            --registry-password $ACR_PASS \
-            --dns-name-label $FRONT_DNS \
-            --ports 80 443 \
-            --cpu 1 \
-            --memory 1.5 \
-            --environment-variables \
-              NEXT_PUBLIC_API_BASE=$API_BASE \
-              FRONT_DOMAIN=$FRONT_DOMAIN \
-              ACME_EMAIL=${{ secrets.ACME_EMAIL }} \
-              XDG_DATA_HOME=/data \
-              PORT=3000 \
-              HOSTNAME=0.0.0.0 \
-            --azure-file-volume-account-name $SA \
-            --azure-file-volume-account-key $SA_KEY \
-            --azure-file-volume-share-name caddydata \
-            --azure-file-volume-mount-path /data \
-            --restart-policy Never
+          az container create -g $RG -n $FRONT_NAME -l $LOC --os-type Linux --image $FRONT_TAG --registry-login-server $ACR.azurecr.io --registry-username $ACR_USER --registry-password $ACR_PASS --dns-name-label $FRONT_DNS --ports 80 443 --cpu 1 --memory 1.5 --environment-variables NEXT_PUBLIC_API_BASE=$API_BASE FRONT_DOMAIN=$FRONT_DOMAIN ACME_EMAIL=${{ secrets.ACME_EMAIL }} XDG_DATA_HOME=/data PORT=3000 HOSTNAME=0.0.0.0 --azure-file-volume-account-name $SA --azure-file-volume-account-key $SA_KEY --azure-file-volume-share-name caddydata --azure-file-volume-mount-path /data --restart-policy Never
 
       - name: Ensure Azure DNS zone and update A/@ and CNAME/www
         run: |
           set -e
           az network dns zone show -g $RG -n $DNS_ZONE >/dev/null 2>&1 || az network dns zone create -g $RG -n $DNS_ZONE >/dev/null
-
           FRONT_IP=$(az container show -g $RG -n $FRONT_NAME --query ipAddress.ip -o tsv)
           FRONT_FQDN="$FRONT_DNS.$LOC.azurecontainer.io"
-
           az network dns record-set a show -g $RG -z $DNS_ZONE -n @ >/dev/null 2>&1 || az network dns record-set a create -g $RG -z $DNS_ZONE -n @ --ttl 60
           az network dns record-set a update -g $RG -z $DNS_ZONE -n @ --set aRecords=[]
           az network dns record-set a add-record -g $RG -z $DNS_ZONE -n @ -a $FRONT_IP
-
           az network dns record-set cname show -g $RG -z $DNS_ZONE -n www >/dev/null 2>&1 || az network dns record-set cname create -g $RG -z $DNS_ZONE -n www --ttl 60
           az network dns record-set cname set-record -g $RG -z $DNS_ZONE -n www -c $FRONT_FQDN
-
-      - name: Print URLs
-        run: |
-          echo "BACKEND: http://$BACK_DNS.$LOC.azurecontainer.io:8000"
-          echo "FRONT:   http://$FRONT_DNS.$LOC.azurecontainer.io"
-          echo "FRONT:   https://$FRONT_DOMAIN"
-          echo ""
-          echo "Next step:"
-          echo "  POST http://$BACK_DNS.$LOC.azurecontainer.io:8000/init  (seed data)"
-
-
-
-
 
       - name: Wait backend ready and health-check
         run: |
           set -e
-          # wait until Running
-          for i in {1..60}; do
-            state=$(az container show -g $RG -n $BACK_NAME --query instanceView.state -o tsv || true)
-            echo "backend state: $state"
-            [ "$state" = "Running" ] && break
-            sleep 5
-          done
-          BACK_URL="http://$BACK_DNS.$LOC.azurecontainer.io:8000"
-          curl -fsS "$BACK_URL/health"
+          for i in {1..60}; do state=$(az container show -g $RG -n $BACK_NAME --query instanceView.state -o tsv || true); echo "backend state: $state"; [ "$state" = "Running" ] && break; sleep 5; done
+          BACK_URL="http://$BACK_DNS.$LOC.azurecontainer.io:8000"; curl -fsS "$BACK_URL/health"
+
       - name: Wait frontend ready and smoke test
         run: |
           set -e
-          for i in {1..60}; do
-            state=$(az container show -g $RG -n $FRONT_NAME --query instanceView.state -o tsv || true)
-            echo "frontend state: $state"
-            [ "$state" = "Running" ] && break
-            sleep 5
-          done
-          FRONT_URL="http://$FRONT_DNS.$LOC.azurecontainer.io"
-          curl -fsS "$FRONT_URL" | head -c 2000
+          for i in {1..60}; do state=$(az container show -g $RG -n $FRONT_NAME --query instanceView.state -o tsv || true); echo "frontend state: $state"; [ "$state" = "Running" ] && break; sleep 5; done
+          FRONT_URL="http://$FRONT_DNS.$LOC.azurecontainer.io"; curl -fsS "$FRONT_URL" | head -c 2000
