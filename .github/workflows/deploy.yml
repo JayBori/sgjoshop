@@ -108,3 +108,4 @@ jobs:
           az network dns record-set cname show -g $RG -z $DNS_ZONE -n www >/dev/null 2>&1 || az network dns record-set cname create -g $RG -z $DNS_ZONE -n www --ttl 60
           az network dns record-set cname set-record -g $RG -z $DNS_ZONE -n www -c $FRONT_FQDN
 
+
