@@ -7,15 +7,11 @@ export const metadata = {
   description: "Next.js + FastAPI + PostgreSQL on ACI",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode; }) {
   return (
     <html lang="ko">
       <body>
-        <div className="promo">?? ??! ? ?? 10% ??</div>
+        <div className="promo">특가 세일! 첫 구매 10% 할인</div>
         <header className="site-header">
           <div className="container header-inner">
             <div className="brand">SGJO Shop</div>
@@ -34,5 +30,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-

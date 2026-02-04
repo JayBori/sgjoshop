@@ -12,7 +12,7 @@ export default function LoginPage(){
     setError('')
     const body = new URLSearchParams({ username, password })
     const res = await fetch(`${apiBase}/auth/login`, { method: 'POST', body })
-    if(!res.ok){ setError('??? ??'); return }
+    if(!res.ok){ setError('로그인 실패'); return }
     const data = await res.json()
     localStorage.setItem('token', data.access_token)
     if(data.must_change_password){
@@ -24,15 +24,14 @@ export default function LoginPage(){
   }
   return (
     <main className="container" style={{maxWidth:480}}>
-      <h1>???</h1>
+      <h1>로그인</h1>
       <form onSubmit={onSubmit}>
-        <input placeholder="???" value={username} onChange={e=>setUsername(e.target.value)} />
-        <input type="password" placeholder="????" value={password} onChange={e=>setPassword(e.target.value)} />
-        <button type="submit">???</button>
+        <input placeholder="아이디" value={username} onChange={e=>setUsername(e.target.value)} />
+        <input type="password" placeholder="비밀번호" value={password} onChange={e=>setPassword(e.target.value)} />
+        <button type="submit">로그인</button>
       </form>
       {error && <p style={{color:'red'}}>{error}</p>}
-      <p><a href="/signup">????</a></p>
+      <p><a href="/signup">회원가입</a></p>
     </main>
   )
 }
-
