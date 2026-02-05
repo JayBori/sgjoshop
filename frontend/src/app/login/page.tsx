@@ -1,26 +1,25 @@
 ﻿'use client'
 import { useState } from 'react'
-
 import { getApiBase } from "../../lib/getApiBase"
-
-
 
 export default function LoginPage(){
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    const body = new URLSearchParams({ username, password })
-    const res = await fetch(`${getApiBase()}/auth/login`, { method: 'POST', body })
-    if(!res.ok){ setError('로그인 실패'); return }
-    const data = await res.json()
-    localStorage.setItem('token', data.access_token)
-    if(data.must_change_password){
-      localStorage.setItem('mustChangePassword','1')
+    try{
+      const body = new URLSearchParams({ username, password })
+      const res = await fetch(`${getApiBase()}/auth/login`, { method: 'POST', body })
+      if(!res.ok){ setError('로그인 실패'); return }
+      const data = await res.json()
+      localStorage.setItem('token', data.access_token)
       location.href = data.is_admin ? '/admin' : '/'
+    }catch(err){ setError('로그인 오류') }
   }
+
   return (
     <main className="container" style={{maxWidth:480}}>
       <h1>로그인</h1>
@@ -34,8 +33,3 @@ export default function LoginPage(){
     </main>
   )
 }
-
-
-
-
-
