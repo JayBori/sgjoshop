@@ -129,6 +129,13 @@ def init_db():
           is_active INTEGER DEFAULT 1,
           last_login TIMESTAMP,
           must_change_password INTEGER DEFAULT 0,
+          full_name TEXT,
+          birthdate TEXT,
+          email TEXT,
+          phone TEXT,
+          zipcode TEXT,
+          address TEXT,
+          address2 TEXT,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
@@ -246,7 +253,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 def _fetch_user_by_id(user_id: int) -> Optional[Tuple]:
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("SELECT id, username, is_admin, is_active, must_change_password, last_login FROM users WHERE id=?", (user_id,))
+    cur.execute(
+        "SELECT id, username, is_admin, is_active, must_change_password, last_login, full_name, birthdate, email, phone, zipcode, address, address2 FROM users WHERE id=?",
+        (user_id,),
+    )
     row = cur.fetchone()
     conn.close()
     return row
@@ -272,6 +282,13 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         "is_active": bool(row[3]),
         "must_change_password": bool(row[4]),
         "last_login": row[5],
+        "full_name": row[6],
+        "birthdate": row[7],
+        "email": row[8],
+        "phone": row[9],
+        "zipcode": row[10],
+        "address": row[11],
+        "address2": row[12],
     }
 
 
@@ -283,20 +300,59 @@ def require_admin(user=Depends(get_current_user)):
 
 # Auth endpoints
 @app.post("/auth/signup")
-def signup(username: str = Form(...), password: str = Form(...)):
+def signup(
+    username: str = Form(...),
+    password: str = Form(...),
+    full_name: Optional[str] = Form(None),
+    birthdate: Optional[str] = Form(None),
+    email: Optional[str] = Form(None),
+    phone: Optional[str] = Form(None),
+    zipcode: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    address2: Optional[str] = Form(None),
+):
     if len(username) < 3 or len(password) < 6:
         raise HTTPException(400, "username/password too short")
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     try:
         cur.execute(
-            "INSERT INTO users(username, password_hash, is_admin, must_change_password) VALUES (?,?,0,0)",
-            (username, hash_password(password)),
+            "INSERT INTO users(username, password_hash, is_admin, must_change_password, full_name, birthdate, email, phone, zipcode, address, address2) VALUES (?,?,0,0,?,?,?,?,?,?,?)",
+            (username, hash_password(password), full_name, birthdate, email, phone, zipcode, address, address2),
         )
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
         raise HTTPException(400, "username already exists")
+    conn.close()
+    return {"ok": True}
+
+
+@app.get("/auth/profile")
+def get_profile(user=Depends(get_current_user)):
+    return user
+
+
+@app.put("/auth/profile")
+def update_profile(
+    full_name: Optional[str] = Form(None),
+    birthdate: Optional[str] = Form(None),
+    email: Optional[str] = Form(None),
+    phone: Optional[str] = Form(None),
+    zipcode: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    address2: Optional[str] = Form(None),
+    user=Depends(get_current_user),
+):
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    sets=[]; vals=[]
+    for k,v in (('full_name',full_name),('birthdate',birthdate),('email',email),('phone',phone),('zipcode',zipcode),('address',address),('address2',address2)):
+        if v is not None:
+            sets.append(f"{k}=?"); vals.append(v)
+    if sets:
+        vals.append(user['id'])
+        cur.execute(f"UPDATE users SET {', '.join(sets)} WHERE id=?", tuple(vals))
+        conn.commit()
     conn.close()
     return {"ok": True}
 
