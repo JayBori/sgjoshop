@@ -15,7 +15,7 @@ export default function LoginPage(){
       const res = await fetch(`${getApiBase()}/auth/login`, { method: 'POST', body })
       if(!res.ok){ setError('로그인 실패'); return }
       const data = await res.json()
-      localStorage.setItem('token', data.access_token)
+      localStorage.setItem('token', data.access_token); localStorage.setItem('is_admin', data.is_admin ? '1' : '0')
       location.href = data.is_admin ? '/admin' : '/'
     }catch(err){ setError('로그인 오류') }
   }
@@ -33,3 +33,4 @@ export default function LoginPage(){
     </main>
   )
 }
+
