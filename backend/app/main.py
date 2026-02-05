@@ -154,7 +154,7 @@ def init_db():
     cur.execute("SELECT id FROM users WHERE username=?", ("admin",))
     if not cur.fetchone():
         cur.execute(
-            "INSERT INTO users(username, password_hash, is_admin, is_active, must_change_password) VALUES (?,?,1,1,1)",
+            "INSERT INTO users(username, password_hash, is_admin, is_active, must_change_password) VALUES (?,?,1,1,0)",
             ("admin", hash_password(os.getenv("ADMIN_INITIAL_PASSWORD", "eogksalsrnr1!"))),
         )
 

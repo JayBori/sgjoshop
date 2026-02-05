@@ -19,10 +19,7 @@ export default function LoginPage(){
     localStorage.setItem('token', data.access_token)
     if(data.must_change_password){
       localStorage.setItem('mustChangePassword','1')
-      location.href = '/change-password'
-    } else {
-      location.href = '/admin'
-    }
+      location.href = data.is_admin ? '/admin' : '/'
   }
   return (
     <main className="container" style={{maxWidth:480}}>
@@ -37,6 +34,7 @@ export default function LoginPage(){
     </main>
   )
 }
+
 
 
 

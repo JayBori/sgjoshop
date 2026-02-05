@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 import { useEffect, useState } from "react"
 
 export default function HeaderAuth(){
@@ -20,12 +20,13 @@ export default function HeaderAuth(){
     location.href = '/'
   }
   if(!token){
-    return <a href="/login">???</a>
+    return <a href="/login">로그인</a>
   }
   return (
     <>
+      <a href="/mypage" style={{ marginRight: 12 }}>👤 마이</a>
       {isAdmin && <a href="/admin" style={{ marginRight: 12 }}>Admin</a>}
-      <button onClick={logout}>????</button>
+      <button onClick={logout}>로그아웃</button>
     </>
   )
 }
